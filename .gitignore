@@ -1,0 +1,12 @@
+# verifiche e classi di esempio: restano solo sul computer
+esempi/
+
+# file di prova e di sviluppo locale
+out/
+tmp-test/
+.claude/
+
+# file di sistema
+Thumbs.db
+desktop.ini
+.DS_Store

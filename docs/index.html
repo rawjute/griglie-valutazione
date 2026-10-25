@@ -1,0 +1,2683 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Griglie di valutazione</title>
+  <style>
+:root {
+  --bg: #f4f6f9;
+  --surface: #ffffff;
+  --surface-2: #f7f9fc;
+  --line: #dde3ec;
+  --line-strong: #c5cfdd;
+  --text: #1c2430;
+  --muted: #667387;
+  --accent: #2f5fb3;
+  --accent-soft: #e6eefb;
+  --good: #1f8a4c;
+  --good-soft: #e5f5ec;
+  --bad: #c0392b;
+  --bad-soft: #fdecea;
+  --warn: #a8670a;
+  --warn-soft: #fff4e0;
+  --radius: 8px;
+  --shadow: 0 1px 2px rgba(20, 30, 50, .06), 0 2px 8px rgba(20, 30, 50, .05);
+  --lv0: #e3f4ea;
+  --lv1: #eef6dd;
+  --lv2: #fff4dc;
+  --lv3: #fde9de;
+  --lvlow: #fbe1df;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font: 14px/1.45 "Segoe UI", system-ui, -apple-system, Roboto, Arial, sans-serif;
+}
+h1 { font-size: 22px; margin: 2px 0; font-weight: 650; }
+h2 { font-size: 18px; margin: 0 0 6px; font-weight: 650; }
+h3 { font-size: 14px; margin: 18px 0 8px; font-weight: 650; }
+a { color: var(--accent); }
+input, select, textarea, button { font: inherit; color: inherit; }
+
+input[type=text], input:not([type]), input.num, input[type=date], select, textarea {
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  padding: 5px 8px;
+  background: #fff;
+  min-width: 0;
+}
+input[type=text], textarea { width: 100%; }
+textarea { resize: vertical; }
+input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent-soft); border-color: var(--accent); }
+input.num { width: 70px; text-align: right; }
+input.invalid { border-color: var(--bad); background: var(--bad-soft); }
+input:disabled { background: var(--surface-2); color: var(--muted); }
+
+/* ---------- layout ---------- */
+.topbar {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 20px; background: var(--surface); border-bottom: 1px solid var(--line);
+  position: sticky; top: 0; z-index: 10;
+}
+.brand { border: 0; background: none; font-weight: 700; font-size: 15px; cursor: pointer; display: flex; gap: 8px; align-items: center; padding: 0; }
+.logo { color: var(--accent); font-size: 18px; }
+.crumb { color: var(--muted); }
+main { padding: 20px; max-width: 1500px; margin: 0 auto; }
+.page-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; flex-wrap: wrap; margin-bottom: 14px; }
+.eyebrow { text-transform: uppercase; letter-spacing: .06em; font-size: 11px; color: var(--accent); font-weight: 650; }
+.actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.panel { background: var(--surface); border: 1px solid var(--line); border-top: 0; border-radius: 0 0 var(--radius) var(--radius); padding: 18px; box-shadow: var(--shadow); }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px; margin: 12px 0; box-shadow: var(--shadow); }
+.panel .card { box-shadow: none; background: var(--surface-2); }
+.row { display: flex; align-items: center; }
+.row.gap { gap: 10px; }
+.row.wrap { flex-wrap: wrap; }
+.row.end { align-self: flex-end; gap: 2px; }
+.grow { flex: 1; min-width: 0; }
+.spacer { flex: 1; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; align-items: start; }
+.center { text-align: center; }
+.muted { color: var(--muted); }
+.small { font-size: 12px; }
+.strong { font-weight: 650; }
+.good { color: var(--good); }
+.bad { color: var(--bad); }
+.warn-text { color: var(--warn); }
+.nowrap { white-space: nowrap; }
+.empty { color: var(--muted); padding: 24px; text-align: center; background: var(--surface-2); border-radius: var(--radius); }
+
+/* ---------- campi ---------- */
+.field { display: flex; flex-direction: column; gap: 4px; margin-bottom: 12px; }
+.field.inline { margin-bottom: 0; flex-direction: row; align-items: center; gap: 8px; }
+.field-label { font-size: 12px; font-weight: 600; color: var(--muted); }
+.hint { font-size: 12px; color: var(--muted); }
+.check { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
+.check.small { font-size: 12px; color: var(--muted); margin: 6px 0; }
+.check.tiny { font-size: 11px; color: var(--muted); gap: 3px; font-weight: 400; }
+.pill { display: inline-block; padding: 4px 10px; border-radius: 99px; background: var(--accent-soft); color: var(--accent); font-size: 12px; font-weight: 600; }
+.tag { display: inline-block; padding: 1px 6px; border-radius: 4px; background: var(--warn-soft); color: var(--warn); font-size: 11px; font-weight: 600; }
+
+/* ---------- bottoni ---------- */
+.btn {
+  border: 1px solid var(--line-strong); background: #fff; border-radius: 6px;
+  padding: 6px 12px; cursor: pointer; font-weight: 550; white-space: nowrap;
+}
+.btn:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.btn.primary:hover:not(:disabled) { background: #264f96; color: #fff; }
+.btn.warn { background: var(--warn-soft); border-color: #e9c17a; color: var(--warn); }
+.btn.danger:hover { border-color: var(--bad); color: var(--bad); }
+.btn.small { padding: 3px 8px; font-size: 12px; }
+.btn:disabled { opacity: .45; cursor: default; }
+.icon-btn { border: 0; background: none; cursor: pointer; padding: 3px 6px; border-radius: 4px; color: var(--muted); }
+.icon-btn:hover:not(:disabled) { background: var(--surface-2); color: var(--text); }
+.icon-btn:disabled { opacity: .3; cursor: default; }
+.link { border: 0; background: none; color: var(--accent); cursor: pointer; text-align: left; padding: 0; font-weight: 550; }
+.link:hover { text-decoration: underline; }
+
+/* ---------- tabs ---------- */
+.tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--line); overflow-x: auto; }
+.panel .tabs { margin-top: 14px; }
+.tab {
+  border: 1px solid transparent; border-bottom: 0; background: none; padding: 8px 14px; cursor: pointer;
+  border-radius: 6px 6px 0 0; color: var(--muted); font-weight: 550; white-space: nowrap;
+}
+.tab:hover { color: var(--text); }
+.tab.active { background: var(--surface); border-color: var(--line); color: var(--accent); margin-bottom: -1px; }
+.badge { margin-left: 6px; background: var(--accent-soft); color: var(--accent); border-radius: 99px; padding: 0 7px; font-size: 11px; }
+.badge.warn { background: var(--warn-soft); color: var(--warn); }
+
+/* ---------- tabelle ---------- */
+.table-scroll { overflow-x: auto; margin: 8px 0; }
+.tbl { border-collapse: collapse; width: 100%; background: #fff; }
+.tbl th, .tbl td { border-bottom: 1px solid var(--line); padding: 7px 8px; text-align: left; vertical-align: middle; }
+.tbl thead th { font-size: 12px; color: var(--muted); font-weight: 600; background: var(--surface-2); border-bottom: 1px solid var(--line-strong); }
+.tbl tfoot td, .tbl tfoot th { border-top: 1px solid var(--line-strong); font-weight: 600; background: var(--surface-2); }
+.tbl.compact th, .tbl.compact td { padding: 4px 6px; }
+.tbl .c { text-align: center; }
+.tbl .right { text-align: right; }
+.tbl tr.dim td { opacity: .5; }
+.tbl th.vert { height: 110px; vertical-align: bottom; padding-bottom: 8px; }
+.tbl th.vert span { writing-mode: vertical-rl; transform: rotate(180deg); white-space: nowrap; max-height: 100px; overflow: hidden; text-overflow: ellipsis; display: inline-block; }
+.tbl td.off { background: #f0f2f5; color: #aab; text-align: center; }
+.tbl.matrix td { font-variant-numeric: tabular-nums; }
+.summary tbody tr:hover td { background: var(--accent-soft); }
+
+/* ---------- indicatori ---------- */
+.levels-tbl { margin: 6px 0 8px; }
+.levels-tbl td { vertical-align: top; }
+.levels-tbl .lv-name { width: 170px; }
+.levels-tbl .lv-pct { width: 100px; padding-top: 9px; }
+.levels-tbl td.c { padding-top: 9px; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { display: inline-flex; gap: 4px; align-items: center; border: 1px solid var(--line-strong); border-radius: 99px; padding: 2px 10px; font-size: 13px; cursor: pointer; background: #fff; }
+.chip.on { border-color: var(--accent); background: var(--accent-soft); }
+.total-line { margin: 10px 0; font-weight: 650; }
+.total-big { font-size: 22px; font-weight: 700; color: var(--accent); line-height: 1.2; }
+
+/* ---------- alert / toast / busy ---------- */
+.alert { border-radius: var(--radius); padding: 10px 14px; margin: 12px 0; font-size: 13px; }
+.alert.warn { background: var(--warn-soft); color: #6e4504; border: 1px solid #f0d49e; }
+.alert.info { background: var(--accent-soft); border: 1px solid #c4d5f3; }
+.err-box { white-space: pre-wrap; font: 12px/1.4 Consolas, monospace; background: #fff; border: 1px solid var(--line); border-radius: 6px; padding: 10px; max-height: 220px; overflow: auto; user-select: all; }
+.modal-back {
+  position: fixed; inset: 0; z-index: 60; background: rgba(28, 36, 48, .35);
+  display: flex; align-items: center; justify-content: center; padding: 16px;
+}
+.modal { background: var(--surface); border-radius: 10px; box-shadow: 0 10px 40px rgba(0,0,0,.25); padding: 20px 22px; max-width: 460px; width: 100%; }
+.modal p { margin: 0 0 18px; }
+.end-row { justify-content: flex-end; }
+.btn.danger-solid { background: var(--bad); border-color: var(--bad); color: #fff; }
+.btn.danger-solid:hover { background: #a3301f; color: #fff; }
+.toast {
+  position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 50;
+  background: #1c2430; color: #fff; padding: 10px 18px; border-radius: 8px; box-shadow: 0 6px 20px rgba(0,0,0,.2);
+  max-width: min(90vw, 640px); cursor: pointer;
+}
+.toast.error { background: var(--bad); }
+.busy {
+  position: fixed; inset: 0; background: rgba(244, 246, 249, .7); z-index: 40;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; font-weight: 600;
+}
+.spinner { width: 34px; height: 34px; border: 3px solid var(--line); border-top-color: var(--accent); border-radius: 50%; animation: spin .8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.save-error { color: var(--bad); }
+.save-saving, .save-pending { color: var(--warn); }
+
+/* ---------- home ---------- */
+.home-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+.card.mode { padding: 22px; margin: 0; }
+.mode-icon { width: 40px; height: 40px; border-radius: 10px; background: var(--accent-soft); color: var(--accent); display: flex; align-items: center; justify-content: center; font-size: 20px; margin-bottom: 10px; }
+.file-list { list-style: none; padding: 0; margin: 0; border-top: 1px solid var(--line); }
+.file-list li { display: flex; align-items: center; gap: 10px; padding: 7px 0; border-bottom: 1px solid var(--line); }
+
+/* ---------- griglia ---------- */
+.grid-preview { overflow-x: auto; margin: 14px 0; padding: 12px; background: #fff; border: 1px solid var(--line); border-radius: var(--radius); }
+
+/* ---------- correzione ---------- */
+.eval-layout { display: grid; grid-template-columns: 230px 1fr; gap: 16px; align-items: start; }
+.student-list { display: flex; flex-direction: column; gap: 2px; position: sticky; top: 64px; max-height: calc(100vh - 90px); overflow-y: auto; }
+.student {
+  display: flex; flex-direction: column; align-items: flex-start; text-align: left;
+  border: 1px solid transparent; background: none; border-radius: 6px; padding: 6px 10px; cursor: pointer;
+  border-left: 3px solid var(--line);
+}
+.student:hover { background: var(--surface-2); }
+.student.active { background: var(--accent-soft); border-color: #c4d5f3; border-left-color: var(--accent); }
+.student .name { font-weight: 600; }
+.student .meta { font-size: 11px; color: var(--muted); }
+.student.done { border-left-color: var(--good); }
+.student.partial { border-left-color: #e5a43a; }
+.student.absent .name { color: var(--muted); text-decoration: line-through; }
+.eval-main { min-width: 0; }
+.eval-head h2 { margin: 0; }
+.tbl.eval th, .tbl.eval td { border: 1px solid var(--line); text-align: center; }
+.tbl.eval .ind-name { text-align: left; min-width: 210px; max-width: 280px; font-weight: 600; background: var(--surface-2); vertical-align: top; }
+.tbl.eval tr.row-focus .ind-name { background: var(--accent-soft); }
+
+/* legenda delle fasce dei livelli nella colonna degli indicatori */
+.bands { list-style: none; margin: 6px 0 0; padding: 0; display: flex; flex-direction: column; gap: 2px; font-weight: 400; }
+.band {
+  display: flex; gap: 8px; align-items: baseline; font-size: 11px; line-height: 1.35;
+  padding: 1px 6px; border-left: 4px solid var(--line-strong); border-radius: 3px;
+}
+.band .b-range { min-width: 64px; font-variant-numeric: tabular-nums; color: var(--text); white-space: nowrap; }
+.band .b-name { color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.band.active { font-weight: 650; }
+.band.active .b-name { color: var(--text); }
+.band.lv0 { border-left-color: #3fae6a; } .band.lv0.active { background: var(--lv0); }
+.band.lv1 { border-left-color: #9cc85c; } .band.lv1.active { background: var(--lv1); }
+.band.lv2 { border-left-color: #e3b23c; } .band.lv2.active { background: var(--lv2); }
+.band.lv3 { border-left-color: #e8894d; } .band.lv3.active { background: var(--lv3); }
+.band.lvlow { border-left-color: #d9534f; } .band.lvlow.active { background: var(--lvlow); }
+.band { cursor: help; }
+.band.hover { outline: 1px solid var(--line-strong); background: #fff; }
+
+/* barra del descrittore: resta in fondo allo schermo mentre correggi */
+.desc-bar {
+  position: sticky; bottom: 8px; z-index: 5; margin: 10px 0;
+  background: var(--surface); border: 1px solid var(--line); border-left: 5px solid var(--line-strong);
+  border-radius: var(--radius); box-shadow: 0 4px 16px rgba(20, 30, 50, .10);
+  padding: 9px 14px; min-height: 58px; font-size: 13px;
+}
+.desc-bar.empty { box-shadow: none; display: flex; align-items: center; }
+.desc-head { display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; margin-bottom: 3px; }
+.desc-ind { font-weight: 650; }
+.desc-level { font-weight: 650; padding: 0 7px; border-radius: 4px; }
+.desc-text { white-space: pre-line; }
+.desc-bar.lv0 { border-left-color: #3fae6a; } .desc-level.lv0 { background: var(--lv0); }
+.desc-bar.lv1 { border-left-color: #9cc85c; } .desc-level.lv1 { background: var(--lv1); }
+.desc-bar.lv2 { border-left-color: #e3b23c; } .desc-level.lv2 { background: var(--lv2); }
+.desc-bar.lv3 { border-left-color: #e8894d; } .desc-level.lv3 { background: var(--lv3); }
+.desc-bar.lvlow { border-left-color: #d9534f; } .desc-level.lvlow { background: var(--lvlow); }
+.tbl.eval .ex-head { min-width: 74px; }
+.tbl.eval tr.sub th { background: #fff; padding: 2px; }
+.tbl.eval td.cell { padding: 4px; }
+.tbl.eval td.cell input.num { width: 58px; text-align: center; font-weight: 600; }
+.tbl.eval td.ns { background: var(--bad-soft); color: var(--bad); font-size: 12px; }
+.tbl.eval .lvname { font-size: 10.5px; color: var(--muted); min-height: 14px; }
+.tbl.eval td.lv0 { background: var(--lv0); }
+.tbl.eval td.lv1 { background: var(--lv1); }
+.tbl.eval td.lv2 { background: var(--lv2); }
+.tbl.eval td.lv3 { background: var(--lv3); }
+.tbl.eval td.lvlow { background: var(--lvlow); }
+.tbl.eval .ind-res { min-width: 110px; background: var(--surface-2); }
+.closed-counts { margin: 6px 0 8px; gap: 22px; }
+.closed-grid { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
+.closed-q { display: flex; align-items: center; gap: 2px; border: 1px solid var(--line); border-radius: 6px; padding: 3px 4px 3px 8px; background: #fff; }
+.closed-q .qn { min-width: 30px; font-weight: 600; font-size: 12px; }
+.qbtn { width: 26px; height: 26px; border: 1px solid var(--line); background: #fff; border-radius: 4px; cursor: pointer; color: var(--muted); }
+.qbtn.qC.on { background: var(--good); border-color: var(--good); color: #fff; }
+.qbtn.qE.on { background: var(--bad); border-color: var(--bad); color: #fff; }
+.qbtn.qN.on { background: #8a94a6; border-color: #8a94a6; color: #fff; }
+.result-bar, .stats {
+  display: flex; flex-wrap: wrap; gap: 28px; align-items: baseline;
+  background: var(--accent-soft); border-radius: var(--radius); padding: 12px 18px; margin: 14px 0;
+}
+.result-bar > div, .stats > div { display: flex; gap: 6px; align-items: baseline; }
+.result-bar b, .stats b { font-size: 20px; }
+.result-bar .big b { font-size: 26px; color: var(--accent); }
+
+@media (max-width: 900px) {
+  main { padding: 12px 16px; }
+  .home-grid, .grid2, .grid3 { grid-template-columns: 1fr; }
+  .eval-layout { grid-template-columns: 1fr; }
+  .student-list { position: static; max-height: 220px; }
+}
+
+</style>
+  <script src="https://cdn.jsdelivr.net/npm/htm@3.1.1/preact/standalone.umd.js"></script>
+</head>
+<body>
+  <div id="app"></div>
+  <script>
+(function () {
+'use strict';
+// ---- core.js ----
+/* =====================================================================
+ * core.js — utilità e motore di calcolo delle griglie
+ * ===================================================================== */
+
+const U = {
+  uid(prefix) {
+    return (prefix || 'id') + '_' + Math.random().toString(36).slice(2, 9) + Date.now().toString(36).slice(-3);
+  },
+  clone(o) { return JSON.parse(JSON.stringify(o)); },
+  sum(arr, f) { return arr.reduce((s, x) => s + (f ? f(x) : x), 0); },
+  /** Converte input (anche "14,5") in numero, oppure null. */
+  num(v) {
+    if (v === null || v === undefined || v === '') return null;
+    const n = typeof v === 'number' ? v : parseFloat(String(v).trim().replace(',', '.'));
+    return Number.isFinite(n) ? n : null;
+  },
+  round(n, d) {
+    const f = Math.pow(10, d === undefined ? 2 : d);
+    return Math.round((n + Number.EPSILON) * f) / f;
+  },
+  clamp(n, lo, hi) { return Math.max(lo, Math.min(hi, n)); },
+  /** Formato italiano con al massimo d decimali (8,75 — 9 — 7,5). */
+  fmt(n, d) {
+    if (n === null || n === undefined || !Number.isFinite(n)) return '';
+    return U.round(n, d === undefined ? 2 : d).toLocaleString('it-IT', { maximumFractionDigits: d === undefined ? 2 : d, useGrouping: false });
+  },
+  /** Formato italiano con esattamente d decimali (8,50). */
+  fmtFixed(n, d) {
+    if (n === null || n === undefined || !Number.isFinite(n)) return '';
+    return n.toLocaleString('it-IT', { minimumFractionDigits: d, maximumFractionDigits: d, useGrouping: false });
+  },
+  todayISO() {
+    const d = new Date();
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  },
+  dateIT(iso) {
+    if (!iso) return '';
+    const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso);
+    return m ? m[3] + '/' + m[2] + '/' + m[1] : iso;
+  },
+  /** Nome file sicuro. */
+  safeName(s) { return String(s || '').replace(/[\\/:*?"<>|]+/g, '-').replace(/\s+/g, ' ').trim() || 'senza nome'; },
+  esc(s) {
+    return String(s === null || s === undefined ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  },
+  /** Distribuisce `total` (intero) proporzionalmente a values, restituendo interi (metodo dei resti maggiori). */
+  largestRemainder(values, total) {
+    const floors = values.map(v => Math.floor(v));
+    let rem = Math.round(total - U.sum(floors));
+    const order = values.map((v, i) => [v - Math.floor(v), i]).sort((a, b) => b[0] - a[0]);
+    for (let k = 0; rem > 0 && order.length; k = (k + 1) % order.length, rem--) floors[order[k][1]]++;
+    return floors;
+  },
+  studentName(s) { return ((s.cognome || '') + ' ' + (s.nome || '')).trim(); },
+  compareStudents(a, b) {
+    return (a.cognome || '').localeCompare(b.cognome || '', 'it') || (a.nome || '').localeCompare(b.nome || '', 'it');
+  }
+};
+
+/* ---------------------------------------------------------------------
+ * Modello dati
+ * ------------------------------------------------------------------- */
+const Model = {
+  SCHEMA: 1,
+  BES_TYPES: ['DSA', 'NAI', 'PEI'],
+
+  /** Livelli dal più alto: `max` è la percentuale massima del livello (il più alto è sempre 100). */
+  defaultLevels() {
+    return [
+      ['Eccellente', 100], ['Buono', 80], ['Sufficiente', 60], ['Insufficiente', 45], ['Gravemente insufficiente', 30]
+    ].map(([nome, max]) => ({ id: U.uid('lv'), nome, max, descrittore: '' }));
+  },
+
+  /** Copia di una scala di livelli con nuovi id (i descrittori si mantengono se richiesto). */
+  copyLevels(levels, keepDesc) {
+    return levels.map(l => ({ id: U.uid('lv'), nome: l.nome, max: l.max, descrittore: keepDesc ? (l.descrittore || '') : '' }));
+  },
+
+  /** Converte i livelli del vecchio formato (percentuale minima) nel nuovo (percentuale massima). */
+  migrateLevels(levels, descrittori) {
+    const sorted = [...levels].sort((a, b) => (U.num(b.min) || 0) - (U.num(a.min) || 0));
+    return sorted.map((l, i) => ({
+      id: l.id, nome: l.nome,
+      max: i === 0 ? 100 : Math.max(0, (U.num(sorted[i - 1].min) || 0) - 1),
+      descrittore: (descrittori || {})[l.id] || ''
+    }));
+  },
+
+  newTemplate() {
+    const now = new Date().toISOString();
+    return {
+      schema: Model.SCHEMA, tipo: 'template', id: U.uid('tpl'),
+      materia: '', argomento: '', intestazione: '', descrizione: '',
+      votoMin: 2,
+      votoModo: 'soglia',
+      distribuzione: 'proporzionale',
+      notaPiede: 'La valutazione fa riferimento all’eventuale PDP/PEI redatto dal consiglio di classe.',
+      notaPiedeQuando: 'bes',
+      livelli: Model.defaultLevels(),
+      indicatori: [],
+      esercizi: [],
+      chiuse: { attive: false, domande: [], errata: 0, nonData: 0, minimoZero: true },
+      versioni: [],
+      creato: now, modificato: now
+    };
+  },
+
+  newIndicator(t) {
+    return { id: U.uid('ind'), nome: '', max: 20, livelli: Model.copyLevels(t.livelli, false) };
+  },
+
+  newExercise(t, list) {
+    const n = (list || t.esercizi).length + 1;
+    return { id: U.uid('es'), nome: 'Es ' + n, testo: '', indicatori: t.indicatori.map(i => i.id), bias: 0 };
+  },
+
+  newVersion(tipo) {
+    return { id: U.uid('ver'), nome: tipo === 'ALTRO' ? 'Personalizzata' : tipo, tipo, esclusi: [], testi: {}, adj: {}, aggiunti: [], chiuseEscluse: [] };
+  },
+
+  newSession(template, templateFileId) {
+    const now = new Date().toISOString();
+    return {
+      schema: Model.SCHEMA, tipo: 'sessione', id: U.uid('ses'),
+      template: U.clone(template), templateFileId: templateFileId || null,
+      classe: '', data: U.todayISO(), studenti: [],
+      creato: now, modificato: now
+    };
+  },
+
+  newStudent(cognome, nome, versione) {
+    return { id: U.uid('stu'), cognome: cognome || '', nome: nome || '', bes: '', versione: versione || 'std', data: '', assente: false, punteggi: {}, nonSvolti: {}, chiuse: {}, chiuseConteggi: {}, chiuseParziali: {}, note: '' };
+  },
+
+  /** Rende coerente un oggetto caricato da file (campi mancanti, schemi futuri). */
+  normalizeTemplate(t) {
+    const base = Model.newTemplate();
+    const out = Object.assign(base, t);
+    out.chiuse = Object.assign(Model.newTemplate().chiuse, t.chiuse || {});
+    delete out.totale; // il totale ora si ricava dagli indicatori e dalle domande chiuse
+    const oldFormat = l => l && l.length && l[0].min !== undefined && l[0].max === undefined;
+    const tplLevels = t.livelli && t.livelli.length ? t.livelli : Model.defaultLevels();
+    out.livelli = oldFormat(tplLevels) ? Model.migrateLevels(tplLevels) : tplLevels;
+    out.indicatori = (t.indicatori || []).map(i => {
+      const ind = Object.assign({}, i);
+      if (!ind.livelli || !ind.livelli.length) {
+        ind.livelli = oldFormat(tplLevels) ? Model.migrateLevels(tplLevels, i.descrittori) : Model.copyLevels(out.livelli, false);
+      }
+      delete ind.descrittori;
+      ind.livelli = Calc.sortedLevels(ind.livelli);
+      ind.livelli[0].max = 100;
+      return ind;
+    });
+    out.esercizi = (t.esercizi || []).map(e => Object.assign({ testo: '', indicatori: [], bias: 0 }, e));
+    out.versioni = (t.versioni || []).map(v => Object.assign(Model.newVersion(v.tipo || 'ALTRO'), v));
+    return out;
+  },
+
+  normalizeSession(s) {
+    const out = Object.assign(Model.newSession(Model.newTemplate()), s);
+    out.template = Model.normalizeTemplate(s.template || {});
+    out.studenti = (s.studenti || []).map(st => Object.assign(Model.newStudent(), st));
+    return out;
+  },
+
+  /** Associa il valore della colonna BES a una versione del template. */
+  versionForBes(t, bes) {
+    const b = String(bes || '').trim().toUpperCase();
+    if (!b || b === 'NO' || b === 'STANDARD') return 'std';
+    const v = t.versioni.find(x => x.tipo === b) || t.versioni.find(x => x.nome.toUpperCase() === b);
+    return v ? v.id : 'std';
+  },
+
+  versionName(t, vId) {
+    if (!vId || vId === 'std') return 'Standard';
+    const v = t.versioni.find(x => x.id === vId);
+    return v ? v.nome : 'Standard';
+  },
+
+  templateTitle(t) {
+    return [t.materia, t.argomento].filter(Boolean).join(' — ') || 'Verifica senza titolo';
+  },
+
+  templateFileName(t) { return U.safeName(Model.templateTitle(t)) + '.json'; },
+
+  sessionFileName(s) {
+    return U.safeName([s.classe || 'classe', s.template.argomento || s.template.materia, s.data].filter(Boolean).join(' - ')) + '.json';
+  }
+};
+
+/* ---------------------------------------------------------------------
+ * Motore di calcolo
+ *
+ * Ogni esercizio i ha un peso intero w_i (punti). Ogni casella
+ * (esercizio i, indicatore j) riceve una quota p_ij di quel peso.
+ * Il punteggio di un esercizio è la somma per riga, quello di un
+ * indicatore la somma per colonna: entrambe partono dalla stessa
+ * matrice, quindi i totali coincidono sempre.
+ * ------------------------------------------------------------------- */
+const Calc = {
+  indicator(t, id) { return t.indicatori.find(i => i.id === id); },
+
+  /** Livelli dal più alto al più basso; il primo vale sempre fino al 100 %. */
+  sortedLevels(levels) {
+    return [...(levels || [])].sort((a, b) => (U.num(b.max) || 0) - (U.num(a.max) || 0));
+  },
+
+  /**
+   * Fasce di punteggio di ogni livello per un indicatore di massimo `max` (dal più alto), anche decimali.
+   * Un livello arriva fino a max% × massimo (incluso) e parte appena sopra il limite del livello inferiore;
+   * il livello più basso parte da 0 (incluso). Es. su 15 punti: Insufficiente "> 4,5 – 6,75".
+   */
+  levelRanges(levels, max) {
+    const sorted = Calc.sortedLevels(levels);
+    const tos = sorted.map((l, i) => i === 0 ? max : U.round((U.num(l.max) || 0) / 100 * max, 2));
+    return sorted.map((l, i) => {
+      const last = i === sorted.length - 1;
+      const from = last ? 0 : tos[i + 1];
+      return { level: l, from, to: tos[i], fromIncluded: last, empty: last ? tos[i] < 0 : tos[i] <= from };
+    });
+  },
+
+  /** Etichetta di una fascia: "0 – 4,5" per la più bassa, "> 4,5 – 6,75" per le altre. */
+  rangeLabel(r) {
+    if (r.empty) return '–';
+    return (r.fromIncluded ? '' : '> ') + U.fmt(r.from) + ' – ' + U.fmt(r.to);
+  },
+
+  /** Problemi di una scala di livelli (percentuali non decrescenti, livelli vuoti). */
+  levelIssues(levels, max) {
+    const issues = [];
+    const sorted = Calc.sortedLevels(levels);
+    const name = l => '«' + (l.nome || 'livello senza nome') + '»';
+    sorted.forEach((l, i) => { if (i > 0 && (U.num(l.max) || 0) >= 100) issues.push(name(l) + ': solo il livello più alto può arrivare al 100 %.'); });
+    Calc.levelRanges(levels, max).forEach(r => { if (r.empty) issues.push(name(r.level) + ' non contiene nessun punteggio su ' + max + '.'); });
+    return issues;
+  },
+
+  /** Voto in decimi: lineare sul punteggio, con voto minimo (soglia o scala dal minimo). */
+  voto(t, totale, maxTot) {
+    if (!(maxTot > 0)) return 0;
+    const min = U.clamp(U.num(t.votoMin) || 0, 0, 10);
+    const ratio = U.clamp(totale / maxTot, 0, 1);
+    const v = t.votoModo === 'lineare' ? min + ratio * (10 - min) : Math.max(min, ratio * 10);
+    return U.round(v, 2);
+  },
+
+  votoRule(t, maxTot) {
+    const min = U.num(t.votoMin) || 0;
+    const T = U.fmt(maxTot);
+    if (!min) return 'punteggio / ' + T + ' × 10, arrotondato al mezzo voto';
+    if (t.votoModo === 'lineare') return U.fmt(min) + ' + punteggio / ' + T + ' × ' + U.fmt(10 - min) + ', arrotondato al mezzo voto';
+    return 'punteggio / ' + T + ' × 10 (minimo ' + U.fmt(min) + '), arrotondato al mezzo voto';
+  },
+
+  levelOf(levels, max, score) {
+    if (score === null || score === undefined) return null;
+    const ranges = Calc.levelRanges(levels, max);
+    const r = ranges.find(x => !x.empty && (x.fromIncluded ? score >= x.from : score > x.from)) || ranges[ranges.length - 1];
+    return r ? r.level : null;
+  },
+
+  version(t, vId) {
+    if (!vId || vId === 'std') return null;
+    return t.versioni.find(v => v.id === vId) || null;
+  },
+
+  /**
+   * Domande chiuse incluse nella versione: ognuna vale i suoi punti, il blocco vale la loro somma.
+   * singole: corretta / errata / non data; composte: risposte con più parti (associazioni,
+   * cloze, completamenti…), con punteggio parziale proporzionale alle parti corrette.
+   */
+  closed(t, vId) {
+    if (!t.chiuse.attive || !t.chiuse.domande.length) return { items: [], singole: [], composte: [], max: 0, all: 0, uniform: true };
+    const all = U.sum(t.chiuse.domande, q => U.num(q.punti) || 0);
+    const v = Calc.version(t, vId);
+    const incl = t.chiuse.domande.filter(q => !v || !v.chiuseEscluse.includes(q.id));
+    const items = incl.map(q => Object.assign({}, q, {
+      valore: U.num(q.punti) || 0,
+      tipo: Calc.isComposite(q) ? 'composta' : 'singola',
+      parti: Calc.partsOf(q)
+    }));
+    const singole = items.filter(q => q.tipo === 'singola');
+    const composte = items.filter(q => q.tipo === 'composta');
+    const uniform = singole.every(q => Math.abs(q.valore - singole[0].valore) < 1e-9);
+    return { items, singole, composte, max: U.sum(items, q => q.valore), all, uniform };
+  },
+
+  /** Domanda a risposta composta ('associazione' è il nome usato nelle prime versioni dell'app). */
+  isComposite(q) { return q.tipo === 'composta' || q.tipo === 'associazione'; },
+
+  partsOf(q) { return Math.max(1, Math.round(U.num(q.parti != null ? q.parti : q.coppie) || 1)); },
+
+  /**
+   * Conteggi corrette / errate / non date delle domande a risposta singola.
+   * Usa i numeri inseriti (chiuseConteggi); per le valutazioni salvate prima, li ricava
+   * dalle risposte segnate domanda per domanda.
+   */
+  closedCounts(rec, C) {
+    const k = rec.chiuseConteggi;
+    if (C.uniform && k && (k.C != null || k.E != null || k.N != null)) {
+      return { C: U.num(k.C) || 0, E: U.num(k.E) || 0, N: U.num(k.N) || 0 };
+    }
+    const out = { C: 0, E: 0, N: 0 };
+    C.singole.forEach(q => { const a = rec.chiuse ? rec.chiuse[q.id] : null; if (out[a] !== undefined) out[a]++; });
+    return out;
+  },
+
+  /** Parti corrette inserite per una domanda a risposta composta (null se non inserite). */
+  partialValue(rec, q) {
+    const src = rec.chiuseParziali && rec.chiuseParziali[q.id] != null ? rec.chiuseParziali : rec.chiuseAssoc;
+    const x = U.num(src ? src[q.id] : null);
+    return x === null ? null : U.clamp(x, 0, q.parti);
+  },
+
+  /** Punti degli esercizi valutati con la griglia in una versione. */
+  manualTotal(t, vId) {
+    const w = Calc.weights(t, vId);
+    return U.sum(Calc.exercises(t, vId), e => w[e.id] || 0);
+  },
+
+  /** Punteggio totale di una versione: esercizi + domande chiuse (non è un valore fisso). */
+  total(t, vId) { return Calc.manualTotal(t, vId) + Calc.closed(t, vId).max; },
+
+  /** Esercizi di una versione (testi personalizzati applicati). */
+  exercises(t, vId) {
+    const v = Calc.version(t, vId);
+    let list = t.esercizi
+      .filter(e => !v || !v.esclusi.includes(e.id))
+      .map(e => Object.assign({}, e, { testo: v && v.testi[e.id] ? v.testi[e.id] : e.testo, aggiunto: false }));
+    if (v) list = list.concat(v.aggiunti.map(e => Object.assign({}, e, { aggiunto: true })));
+    return list;
+  },
+
+  validIndicators(t, ex) { return ex.indicatori.filter(id => Calc.indicator(t, id)); },
+
+  /** Quanti esercizi della lista coprono ciascun indicatore. */
+  coverage(t, list) {
+    const c = {};
+    list.forEach(e => Calc.validIndicators(t, e).forEach(id => { c[id] = (c[id] || 0) + 1; }));
+    return c;
+  },
+
+  /**
+   * Quota di ogni indicatore dentro un esercizio: il punteggio dell'indicatore
+   * si divide in parti uguali tra gli esercizi che lo coprono.
+   */
+  shares(t, ex, cov) {
+    const out = {};
+    Calc.validIndicators(t, ex).forEach(id => {
+      out[id] = (U.num(Calc.indicator(t, id).max) || 0) / Math.max(1, cov[id] || 0);
+    });
+    return out;
+  },
+
+  /** "Grezzo" di un esercizio: somma delle quote degli indicatori che copre. */
+  raw(t, ex, cov) { return U.sum(Object.values(Calc.shares(t, ex, cov || Calc.coverage(t, t.esercizi)))); },
+
+  /**
+   * Pesi della versione standard. Il grezzo di ogni esercizio (somma delle quote degli indicatori)
+   * viene arrotondato a interi con il metodo dei resti maggiori, così la somma resta uguale alla
+   * somma dei massimi degli indicatori; poi si aggiunge la correzione (bias).
+   */
+  standardWeights(t) {
+    const cov = Calc.coverage(t, t.esercizi);
+    const raws = t.esercizi.map(e => Calc.raw(t, e, cov));
+    const R = U.sum(raws);
+    const bases = U.largestRemainder(raws, Math.round(R));
+    const out = {};
+    t.esercizi.forEach((e, i) => {
+      const bias = U.num(e.bias) || 0;
+      out[e.id] = { raw: raws[i], base: bases[i], bias, peso: Math.max(0, bases[i] + bias) };
+    });
+    return { rows: out, R, cov, biasSum: U.sum(t.esercizi, e => U.num(e.bias) || 0) };
+  },
+
+  /**
+   * Pesi finali di una versione: { exId: peso }.
+   * Nelle versioni ogni esercizio mantiene il punteggio che ha nella standard (più l'eventuale
+   * correzione della versione): il totale della versione è la somma di ciò che contiene.
+   */
+  weights(t, vId) {
+    const std = Calc.standardWeights(t);
+    const v = Calc.version(t, vId);
+    const out = {};
+    if (!v) {
+      Object.keys(std.rows).forEach(id => { out[id] = std.rows[id].peso; });
+      return out;
+    }
+    Calc.exercises(t, vId).forEach(e => {
+      const base = e.aggiunto
+        ? Math.max(0, Math.round(Calc.raw(t, e, std.cov)) + (U.num(e.bias) || 0))
+        : (std.rows[e.id] ? std.rows[e.id].peso : 0);
+      out[e.id] = Math.max(0, base + (U.num(v.adj[e.id]) || 0));
+    });
+    return out;
+  },
+
+  /** Matrice dei punti massimi per casella. */
+  matrix(t, vId) {
+    const exs = Calc.exercises(t, vId);
+    const W = Calc.weights(t, vId);
+    const usedIds = new Set();
+    exs.forEach(e => Calc.validIndicators(t, e).forEach(id => usedIds.add(id)));
+    const used = t.indicatori.filter(i => usedIds.has(i.id));
+    // le quote degli indicatori si calcolano sulla verifica standard: togliere un esercizio
+    // in una versione toglie anche la sua parte di indicatori
+    const cov = Calc.coverage(t, t.esercizi);
+    const nominal = {};
+    used.forEach(i => { nominal[i.id] = 0; });
+    const rows = exs.map(ex => {
+      const sh = Calc.shares(t, ex, cov);
+      const raw = U.sum(Object.values(sh));
+      const cells = {};
+      Object.keys(sh).forEach(id => {
+        cells[id] = raw > 0 ? (W[ex.id] || 0) * sh[id] / raw : 0;
+        nominal[id] += sh[id];
+      });
+      return { ex, peso: W[ex.id] || 0, cells };
+    });
+    const Tm = U.sum(rows, r => r.peso);
+
+    if (t.distribuzione === 'bilanciata' && rows.length && used.length) {
+      // Iterative proportional fitting: colonne verso il peso previsto (riscalato sul totale), righe fisse sul peso dell'esercizio
+      const totNom = U.sum(used, i => nominal[i.id]);
+      const target = {};
+      used.forEach(i => { target[i.id] = totNom > 0 ? nominal[i.id] * Tm / totNom : 0; });
+      for (let it = 0; it < 500; it++) {
+        used.forEach(i => {
+          const cs = U.sum(rows, r => r.cells[i.id] || 0);
+          if (cs > 0) rows.forEach(r => { if (r.cells[i.id] !== undefined) r.cells[i.id] *= target[i.id] / cs; });
+        });
+        rows.forEach(r => {
+          const rs = U.sum(Object.values(r.cells));
+          if (rs > 0) Object.keys(r.cells).forEach(k => { r.cells[k] *= r.peso / rs; });
+        });
+      }
+    }
+    const eff = {};
+    used.forEach(i => { eff[i.id] = U.sum(rows, r => r.cells[i.id] || 0); });
+    return { rows, used, nominal, eff, Tm };
+  },
+
+  /** Calcola il risultato di uno studente. */
+  score(t, vId, rec) {
+    const M = Calc.matrix(t, vId);
+    const C = Calc.closed(t, vId);
+    const ex = {}, ind = {};
+    M.used.forEach(i => { ind[i.id] = { punti: 0, max: M.eff[i.id], media: null }; });
+    let complete = true, manual = 0, filledAny = false;
+
+    M.rows.forEach(r => {
+      const ns = !!(rec.nonSvolti && rec.nonSvolti[r.ex.id]);
+      let pts = 0, filled = 0, n = 0;
+      Object.keys(r.cells).forEach(indId => {
+        n++;
+        const max = U.num(Calc.indicator(t, indId).max) || 0;
+        let s = ns ? 0 : U.num(rec.punteggi && rec.punteggi[r.ex.id] ? rec.punteggi[r.ex.id][indId] : null);
+        if (s === null) s = 0; else filled++;
+        s = U.clamp(s, 0, max);
+        const c = max > 0 ? s / max * r.cells[indId] : 0;
+        pts += c;
+        ind[indId].punti += c;
+      });
+      const done = ns || filled === n;
+      if (!done) complete = false;
+      if (ns || filled) filledAny = true;
+      ex[r.ex.id] = { punti: pts, max: r.peso, completo: done, nonSvolto: ns };
+      manual += pts;
+    });
+
+    M.used.forEach(i => {
+      const x = ind[i.id];
+      x.media = x.max > 0 ? x.punti / x.max * (U.num(i.max) || 0) : null;
+    });
+
+    let closedPts = 0, closedAnswered = 0;
+    const cnt = Calc.closedCounts(rec, C);
+    if (C.uniform) {
+      // tutte le domande a risposta singola valgono uguale: bastano i conteggi
+      closedPts = cnt.C * (C.singole.length ? C.singole[0].valore : 0) + cnt.E * (U.num(t.chiuse.errata) || 0) + cnt.N * (U.num(t.chiuse.nonData) || 0);
+      closedAnswered = cnt.C + cnt.E + cnt.N;
+    } else {
+      C.singole.forEach(q => {
+        const a = rec.chiuse ? rec.chiuse[q.id] : null;
+        if (a === 'C') closedPts += q.valore;
+        else if (a === 'E') closedPts += U.num(t.chiuse.errata) || 0;
+        else if (a === 'N') closedPts += U.num(t.chiuse.nonData) || 0;
+        if (a) closedAnswered++;
+      });
+    }
+    if (C.singole.length && closedAnswered !== C.singole.length) complete = false;
+    let partialDone = 0;
+    C.composte.forEach(q => {
+      const x = Calc.partialValue(rec, q);
+      if (x === null) { complete = false; return; }
+      closedPts += q.valore * x / q.parti;
+      partialDone++;
+    });
+    if (closedAnswered || partialDone) filledAny = true;
+    if (t.chiuse.minimoZero) closedPts = Math.max(0, closedPts);
+
+    const totale = manual + closedPts;
+    const maxTot = M.Tm + C.max;
+    const voto = Calc.voto(t, totale, maxTot);
+    const votoArr = Math.round(voto * 2) / 2;
+    return {
+      matrix: M, closed: C, esercizi: ex, indicatori: ind,
+      manuale: manual, chiuse: closedPts, chiuseConteggi: cnt, totale, max: maxTot,
+      voto, votoArr, completo: complete, iniziato: filledAny
+    };
+  },
+
+  /** Avvisi sulla configurazione di una versione. */
+  warnings(t, vId) {
+    const w = [];
+    const std = Calc.standardWeights(t);
+    if (std.biasSum) {
+      w.push('Le correzioni sommano ' + (std.biasSum > 0 ? '+' : '') + U.fmt(std.biasSum) + ': gli esercizi valgono ' + U.fmt(Math.round(std.R) + std.biasSum) +
+        ' punti invece di ' + U.fmt(Math.round(std.R)) + ' (somma dei massimi degli indicatori) e il peso degli indicatori cambia di conseguenza.');
+    }
+    const exs = Calc.exercises(t, vId);
+    exs.forEach(e => { if (!Calc.validIndicators(t, e).length) w.push('«' + (e.nome || 'Esercizio') + '» non ha indicatori associati.'); });
+    t.indicatori.forEach(i => Calc.levelIssues(i.livelli, U.num(i.max) || 0).forEach(x => w.push((i.nome || 'Indicatore') + ': ' + x)));
+    if (t.distribuzione === 'bilanciata') {
+      const M = Calc.matrix(t, vId);
+      const totNom = U.sum(M.used, i => M.nominal[i.id]);
+      const off = M.used.filter(i => totNom > 0 && Math.abs(M.eff[i.id] - M.nominal[i.id] * M.Tm / totNom) > 0.05);
+      if (off.length) w.push('Con questi esercizi non è possibile rispettare esattamente il peso di: ' + off.map(i => i.nome).join(', ') + '.');
+    }
+    return w;
+  }
+};
+
+if (typeof module !== 'undefined') module.exports = { U, Model, Calc };
+
+// ---- backend.js ----
+/* =====================================================================
+ * backend.js — librerie esterne, elenchi classe e file locali (JSON, export)
+ * ===================================================================== */
+
+const Libs = {
+  urls: {
+    jspdf: 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',
+    autotable: 'https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js',
+    exceljs: 'https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js',
+    sheetjs: 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'
+  },
+  loaded: {},
+  load(name) {
+    if (!this.loaded[name]) {
+      this.loaded[name] = new Promise((resolve, reject) => {
+        const s = document.createElement('script');
+        s.src = this.urls[name];
+        s.onload = resolve;
+        s.onerror = () => { delete this.loaded[name]; reject(new Error('Impossibile caricare la libreria ' + name + ' (sei online?)')); };
+        document.head.appendChild(s);
+      });
+    }
+    return this.loaded[name];
+  },
+  async pdf() { await this.load('jspdf'); await this.load('autotable'); return window.jspdf.jsPDF; },
+  async excel() { await this.load('exceljs'); return window.ExcelJS; },
+  async sheet() { await this.load('sheetjs'); return window.XLSX; }
+};
+
+/* ---------------------------------------------------------------------
+ * Elenchi classe: CSV / XLS(X) / ODS con colonne nome, cognome, BES
+ * ------------------------------------------------------------------- */
+const ClassList = {
+  /** Nome classe dal nome file: "3P.csv" -> "3P". */
+  classFromName(name) { return String(name || '').replace(/\.(csv|xlsx?|ods|txt)$/i, '').trim(); },
+
+  parseCSV(text) {
+    text = String(text || '').replace(/^﻿/, '');
+    const first = text.split(/\r?\n/)[0] || '';
+    const counts = { ';': (first.match(/;/g) || []).length, ',': (first.match(/,/g) || []).length, '\t': (first.match(/\t/g) || []).length };
+    const sep = Object.keys(counts).sort((a, b) => counts[b] - counts[a])[0];
+    const rows = [];
+    let row = [], cell = '', q = false;
+    for (let i = 0; i < text.length; i++) {
+      const c = text[i];
+      if (q) {
+        if (c === '"' && text[i + 1] === '"') { cell += '"'; i++; }
+        else if (c === '"') q = false;
+        else cell += c;
+      } else if (c === '"') q = true;
+      else if (c === sep) { row.push(cell); cell = ''; }
+      else if (c === '\n' || c === '\r') {
+        if (c === '\r' && text[i + 1] === '\n') i++;
+        row.push(cell); rows.push(row); row = []; cell = '';
+      } else cell += c;
+    }
+    if (cell || row.length) { row.push(cell); rows.push(row); }
+    return rows;
+  },
+
+  async parseFile(file) {
+    if (/\.(csv|txt)$/i.test(file.name)) return ClassList.parseCSV(await file.text());
+    const XLSX = await Libs.sheet();
+    const wb = XLSX.read(await file.arrayBuffer(), { type: 'array' });
+    return XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, raw: false, defval: '' });
+  },
+
+  /** Righe -> [{cognome, nome, bes}]. Riconosce le intestazioni; senza intestazione assume nome, cognome, BES. */
+  toStudents(rows) {
+    rows = (rows || []).filter(r => r && r.some(c => String(c).trim()));
+    if (!rows.length) return [];
+    const head = rows[0].map(c => String(c).trim().toLowerCase());
+    let iN = head.findIndex(h => h === 'nome' || h === 'name');
+    let iC = head.findIndex(h => h === 'cognome' || h === 'surname');
+    let iB = head.findIndex(h => h === 'bes' || h.indexOf('bes') === 0 || h === 'tipologia' || h === 'versione');
+    let body = rows;
+    if (iN >= 0 || iC >= 0) body = rows.slice(1);
+    else { iN = 0; iC = 1; iB = 2; }
+    return body.map(r => ({
+      nome: String(r[iN] || '').trim(),
+      cognome: String(r[iC] || '').trim(),
+      bes: iB >= 0 ? String(r[iB] || '').trim() : ''
+    })).filter(s => s.nome || s.cognome);
+  }
+};
+
+/* ---------------------------------------------------------------------
+ * File locali: download e lettura
+ * ------------------------------------------------------------------- */
+const Files = {
+  download(blob, name) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = name;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 4000);
+  },
+  pickFile(accept) {
+    return new Promise(resolve => {
+      const inp = document.createElement('input');
+      inp.type = 'file'; inp.accept = accept || '';
+      inp.onchange = () => resolve(inp.files && inp.files[0] ? inp.files[0] : null);
+      inp.click();
+    });
+  }
+};
+
+// ---- exporters.js ----
+/* =====================================================================
+ * exporters.js — griglia (vuota o compilata) in HTML, PDF e XLSX
+ * ===================================================================== */
+
+const Grid = {
+  /**
+   * Struttura comune a tutti gli export.
+   * stu: record studente (facoltativo); ctx: { classe, data } per il piè di pagina.
+   */
+  data(t, vId, stu, ctx) {
+    const M = Calc.matrix(t, vId);
+    const res = stu ? Calc.score(t, vId, stu) : null;
+    const C = Calc.closed(t, vId);
+    const indList = M.rows.length ? M.used : t.indicatori;
+    const cols = M.rows.map(r => ({
+      id: r.ex.id, nome: r.ex.nome, peso: r.peso,
+      nonSvolto: res ? res.esercizi[r.ex.id].nonSvolto : false,
+      punti: res ? res.esercizi[r.ex.id].punti : null
+    }));
+    const inds = indList.map(i => ({
+      ind: i,
+      ranges: Calc.levelRanges(i.livelli, U.num(i.max) || 0),
+      cells: M.rows.map(r => {
+        if (r.cells[i.id] === undefined) return { v: '-', off: true };
+        if (!res) return { v: '' };
+        if (res.esercizi[r.ex.id].nonSvolto) return { v: 'N.S.', ns: true };
+        const v = U.num(stu.punteggi && stu.punteggi[r.ex.id] ? stu.punteggi[r.ex.id][i.id] : null);
+        return { v: v === null ? '' : U.fmt(v) };
+      }),
+      last: res ? (res.indicatori[i.id] ? U.fmt(res.indicatori[i.id].media) : '') : U.fmt(M.eff[i.id])
+    }));
+    const showNote = t.notaPiede && (t.notaPiedeQuando === 'sempre' || (t.notaPiedeQuando === 'bes' && vId && vId !== 'std'));
+    let closedLine = null;
+    if (C.items.length) {
+      const parts = [];
+      if (!res) {
+        if (C.singole.length) {
+          const vals = [...new Set(C.singole.map(q => U.fmt(q.valore)))];
+          parts.push(C.singole.length + ' domande · corretta: ' + vals.join('/') + ' pt · errata: ' + U.fmt(U.num(t.chiuse.errata) || 0) + ' · non data: ' + U.fmt(U.num(t.chiuse.nonData) || 0));
+        }
+        if (C.composte.length) {
+          parts.push((C.composte.length === 1 ? '1 risposta composta (' + C.composte[0].parti + ' parti, ' : C.composte.length + ' risposte composte (') +
+            U.fmt(U.sum(C.composte, q => q.valore)) + ' pt, punteggio proporzionale alle parti corrette)');
+        }
+        closedLine = { label: 'Domande a risposta chiusa', text: parts.join(' · '), value: U.fmt(C.max) };
+      } else {
+        if (C.singole.length) {
+          const cnt = Calc.closedCounts(stu, C);
+          parts.push('Corrette ' + cnt.C + ' · errate ' + cnt.E + ' · non date ' + cnt.N + ' (su ' + C.singole.length + ')');
+        }
+        C.composte.forEach(q => {
+          const x = Calc.partialValue(stu, q);
+          parts.push(q.nome + ': ' + (x === null ? '-' : x) + '/' + q.parti + ' parti corrette');
+        });
+        closedLine = { label: 'Domande a risposta chiusa', text: parts.join(' · '), value: U.fmt(res.chiuse) + ' / ' + U.fmt(C.max) };
+      }
+    }
+    return {
+      title: 'GRIGLIA DI VALUTAZIONE' + (Model.templateTitle(t) ? ' — ' + Model.templateTitle(t).toUpperCase() : ''),
+      subtitle: t.intestazione || '',
+      student: !!stu,
+      lastHeader: stu ? 'Media' : 'Peso',
+      cols, inds, closedLine,
+      totManual: M.Tm,
+      res,
+      total: res ? U.fmt(res.totale) + ' / ' + U.fmt(res.max) : U.fmt(M.Tm + C.max),
+      voto: res ? U.fmtFixed(res.voto, 2) + '   ·   arrotondato: ' + U.fmt(res.votoArr, 1) : Calc.votoRule(t, M.Tm + C.max),
+      note: showNote ? t.notaPiede : '',
+      info: stu ? [['Alunno', U.studentName(stu)], ['Classe', (ctx && ctx.classe) || ''], ['Data', U.dateIT(stu.data || (ctx && ctx.data))]] : null
+    };
+  },
+
+  css: `
+.gv-grid{border-collapse:collapse;width:100%;font:12px/1.3 "Segoe UI",Arial,sans-serif;color:#111;background:#fff}
+.gv-grid th,.gv-grid td{border:1px solid #555;padding:4px 5px;vertical-align:middle}
+.gv-grid thead th{background:#dfe7f3;font-weight:600;text-align:center}
+.gv-grid .gv-title{background:#c9d6ea;font-size:14px;font-weight:700;text-align:center}
+.gv-grid .gv-sub{background:#eef2f8;text-align:center;font-weight:500}
+.gv-grid .gv-ind{font-weight:600;background:#f6f8fb}
+.gv-grid .c{text-align:center}
+.gv-grid .gv-desc{font-size:11px;white-space:pre-line}
+.gv-grid .gv-off{background:#e6e6e6;color:#777;text-align:center}
+.gv-grid .gv-ns{background:#fdecea;text-align:center;color:#a33}
+.gv-grid .gv-foot td{background:#f6f8fb;font-weight:600}
+.gv-grid .gv-total td{background:#dfe7f3;font-weight:700}
+.gv-grid .gv-note{font-style:italic;font-size:11px;border:none;padding-top:8px}
+.gv-info{margin-top:10px;font:13px "Segoe UI",Arial,sans-serif;display:flex;gap:28px}
+.gv-info b{font-weight:600}
+`,
+
+  html(d) {
+    const e = U.esc;
+    const n = d.cols.length;
+    const width = 6 + n;
+    let h = '<table class="gv-grid"><thead>';
+    h += '<tr><th class="gv-title" colspan="' + width + '">' + e(d.title) + '</th></tr>';
+    if (d.subtitle) h += '<tr><th class="gv-sub" colspan="' + width + '">' + e(d.subtitle) + '</th></tr>';
+    h += '<tr><th>Indicatore</th><th>Punti</th><th colspan="2">Descrittori</th><th>Punteggio</th>';
+    d.cols.forEach(c => { h += '<th>' + e(c.nome) + '</th>'; });
+    h += '<th>' + e(d.lastHeader) + '</th></tr></thead><tbody>';
+    d.inds.forEach(row => {
+      const rs = row.ranges.length;
+      row.ranges.forEach((r, k) => {
+        h += '<tr>';
+        if (k === 0) h += '<td class="gv-ind" rowspan="' + rs + '">' + e(row.ind.nome) + '</td><td class="c" rowspan="' + rs + '">' + e(U.fmt(U.num(row.ind.max))) + '</td>';
+        h += '<td class="c">' + e(r.level.nome) + '</td><td class="gv-desc">' + e(r.level.descrittore || '') + '</td>';
+        h += '<td class="c">' + Calc.rangeLabel(r) + '</td>';
+        if (k === 0) {
+          row.cells.forEach(c => { h += '<td rowspan="' + rs + '" class="' + (c.off ? 'gv-off' : c.ns ? 'gv-ns' : 'c') + '">' + e(c.v) + '</td>'; });
+          h += '<td class="c" rowspan="' + rs + '">' + e(row.last) + '</td>';
+        }
+        h += '</tr>';
+      });
+    });
+    const foot = (label, vals, last, cls) => {
+      let s = '<tr class="' + (cls || 'gv-foot') + '"><td colspan="5">' + e(label) + '</td>';
+      vals.forEach(v => { s += '<td class="c">' + e(v) + '</td>'; });
+      return s + '<td class="c">' + e(last) + '</td></tr>';
+    };
+    h += foot(d.student ? 'Punteggio massimo esercizio' : 'Punteggio esercizio', d.cols.map(c => U.fmt(c.peso)), U.fmt(d.totManual));
+    if (d.student) h += foot('Punteggio ottenuto', d.cols.map(c => c.nonSvolto ? 'N.S.' : U.fmt(c.punti)), U.fmt(d.res.manuale));
+    if (d.closedLine) h += '<tr class="gv-foot"><td colspan="5">' + e(d.closedLine.label) + '</td><td colspan="' + n + '">' + e(d.closedLine.text) + '</td><td class="c">' + e(d.closedLine.value) + '</td></tr>';
+    h += '<tr class="gv-total"><td colspan="5">PUNTEGGIO TOTALE</td><td colspan="' + n + '"></td><td class="c">' + e(d.total) + '</td></tr>';
+    h += '<tr class="gv-total"><td colspan="5">VOTO</td><td colspan="' + (n + 1) + '" class="c">' + e(d.voto) + '</td></tr>';
+    if (d.note) h += '<tr><td class="gv-note" colspan="' + width + '">' + e(d.note) + '</td></tr>';
+    h += '</tbody></table>';
+    if (d.info) h += '<div class="gv-info">' + d.info.map(([k, v]) => '<div><b>' + e(k) + ':</b> ' + e(v) + '</div>').join('') + '</div>';
+    return h;
+  },
+
+  htmlDocument(title, bodies) {
+    return '<!doctype html><html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>' + U.esc(title) +
+      '</title><style>body{margin:16px;background:#fff}.gv-page{page-break-after:always;margin-bottom:32px}@page{size:A4 landscape;margin:10mm}' + Grid.css + '</style></head><body>' +
+      bodies.map(b => '<div class="gv-page">' + b + '</div>').join('') + '</body></html>';
+  },
+
+  /* ---------------- PDF ---------------- */
+  async pdf(list) {
+    const jsPDF = await Libs.pdf();
+    const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+    // ogni griglia deve stare in una pagina: se sfora, si riprova con caratteri più piccoli
+    const sizes = [7, 6.5, 6, 5.5, 5];
+    list.forEach((d, idx) => {
+      if (idx) doc.addPage();
+      const start = doc.getNumberOfPages();
+      for (let k = 0; k < sizes.length; k++) {
+        const fits = Grid._pdfPage(doc, d, sizes[k]);
+        if ((fits && doc.getNumberOfPages() === start) || k === sizes.length - 1) break;
+        for (let p = doc.getNumberOfPages(); p >= start; p--) doc.deletePage(p);
+        doc.addPage();
+      }
+    });
+    return doc.output('blob');
+  },
+
+  _pdfPage(doc, d, fs) {
+    fs = fs || 7;
+    const pad = fs >= 7 ? 1.2 : fs >= 6 ? 0.9 : 0.7;
+    const n = d.cols.length;
+    const W = 297 - 16;
+    const fixed = 30 + 11 + 22 + 18 + 15;
+    const exW = U.clamp((W - fixed - 60) / Math.max(n, 1), 7, 12);
+    const descW = W - fixed - exW * n;
+    const head = [[
+      { content: 'Indicatore' }, { content: 'Punti' }, { content: 'Descrittori', colSpan: 2 }, { content: 'Punteggio' },
+      ...d.cols.map(c => ({ content: c.nome })), { content: d.lastHeader }
+    ]];
+    const grey = [230, 230, 230], pale = [246, 248, 251], blue = [223, 231, 243], pink = [253, 236, 234];
+    const body = [];
+    d.inds.forEach(row => {
+      const rs = row.ranges.length;
+      row.ranges.forEach((r, k) => {
+        const line = [];
+        if (k === 0) {
+          line.push({ content: row.ind.nome, rowSpan: rs, styles: { fontStyle: 'bold', fillColor: pale, valign: 'middle' } });
+          line.push({ content: U.fmt(U.num(row.ind.max)), rowSpan: rs, styles: { halign: 'center', valign: 'middle' } });
+        }
+        line.push({ content: r.level.nome, styles: { halign: 'center', valign: 'middle' } });
+        line.push({ content: r.level.descrittore || '', styles: { fontSize: fs - 0.5 } });
+        line.push({ content: Calc.rangeLabel(r), styles: { halign: 'center', valign: 'middle' } });
+        if (k === 0) {
+          row.cells.forEach(c => line.push({ content: c.v, rowSpan: rs, styles: { halign: 'center', valign: 'middle', fillColor: c.off ? grey : c.ns ? pink : false } }));
+          line.push({ content: row.last, rowSpan: rs, styles: { halign: 'center', valign: 'middle' } });
+        }
+        body.push(line);
+      });
+    });
+    const foot = (label, vals, last, fill) => [
+      { content: label, colSpan: 5, styles: { fontStyle: 'bold', fillColor: fill || pale } },
+      ...vals.map(v => ({ content: v, styles: { halign: 'center', fontStyle: 'bold', fillColor: fill || pale } })),
+      { content: last, styles: { halign: 'center', fontStyle: 'bold', fillColor: fill || pale } }
+    ];
+    body.push(foot(d.student ? 'Punteggio massimo esercizio' : 'Punteggio esercizio', d.cols.map(c => U.fmt(c.peso)), U.fmt(d.totManual)));
+    if (d.student) body.push(foot('Punteggio ottenuto', d.cols.map(c => c.nonSvolto ? 'N.S.' : U.fmt(c.punti)), U.fmt(d.res.manuale)));
+    if (d.closedLine) body.push([
+      { content: d.closedLine.label, colSpan: 5, styles: { fontStyle: 'bold', fillColor: pale } },
+      { content: d.closedLine.text, colSpan: n, styles: { fillColor: pale } },
+      { content: d.closedLine.value, styles: { halign: 'center', fontStyle: 'bold', fillColor: pale } }
+    ]);
+    body.push([
+      { content: 'PUNTEGGIO TOTALE', colSpan: 5 + n, styles: { fontStyle: 'bold', fillColor: blue } },
+      { content: d.total, styles: { halign: 'center', fontStyle: 'bold', fillColor: blue } }
+    ]);
+    body.push([
+      { content: 'VOTO', colSpan: 2, styles: { fontStyle: 'bold', fillColor: blue } },
+      { content: d.voto, colSpan: n + 4, styles: { halign: 'center', fontStyle: 'bold', fillColor: blue } }
+    ]);
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(11);
+    doc.text(d.title, 148.5, 11, { align: 'center' });
+    let startY = 14;
+    if (d.subtitle) {
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(9);
+      doc.text(d.subtitle, 148.5, 16, { align: 'center' });
+      startY = 19;
+    }
+    const colStyles = { 0: { cellWidth: 30 }, 1: { cellWidth: 11 }, 2: { cellWidth: 22 }, 3: { cellWidth: descW }, 4: { cellWidth: 18 } };
+    for (let i = 0; i < n; i++) colStyles[5 + i] = { cellWidth: exW };
+    colStyles[5 + n] = { cellWidth: 15 };
+    doc.autoTable({
+      head, body, startY,
+      margin: { left: 8, right: 8, top: 10, bottom: 10 },
+      theme: 'grid',
+      rowPageBreak: 'avoid',
+      styles: { font: 'helvetica', fontSize: fs, cellPadding: pad, lineColor: [90, 90, 90], lineWidth: 0.2, textColor: [17, 17, 17], overflow: 'linebreak' },
+      headStyles: { fillColor: blue, textColor: [17, 17, 17], halign: 'center', fontStyle: 'bold' },
+      columnStyles: colStyles
+    });
+    let y = doc.lastAutoTable.finalY + 5;
+    const fits = y + (d.note ? 6 : 0) + (d.info ? 4 : 0) <= 204;
+    doc.setFontSize(8);
+    if (d.note) {
+      doc.setFont('helvetica', 'italic');
+      doc.text(d.note, 8, y); y += 6;
+    }
+    if (d.info) {
+      doc.setFontSize(10);
+      let x = 8;
+      d.info.forEach(([k, v]) => {
+        doc.setFont('helvetica', 'bold'); doc.text(k + ':', x, y);
+        const kw = doc.getTextWidth(k + ': ');
+        doc.setFont('helvetica', 'normal'); doc.text(v || '', x + kw, y);
+        x += kw + Math.max(doc.getTextWidth(v || ''), 20) + 14;
+      });
+    }
+    return fits;
+  },
+
+  /* ---------------- XLSX ---------------- */
+  sheetName(name, used) {
+    let base = String(name || 'Foglio').replace(/[\[\]:*?\/\\]/g, ' ').trim().slice(0, 31) || 'Foglio';
+    let s = base, k = 2;
+    while (used.has(s.toLowerCase())) { const suf = ' (' + k++ + ')'; s = base.slice(0, 31 - suf.length) + suf; }
+    used.add(s.toLowerCase());
+    return s;
+  },
+
+  xlsxSheet(wb, name, d) {
+    const ws = wb.addWorksheet(name, { pageSetup: { orientation: 'landscape', paperSize: 9, fitToPage: true, fitToWidth: 1, fitToHeight: 0 } });
+    const n = d.cols.length;
+    const lastCol = 6 + n;
+    const thin = { style: 'thin', color: { argb: 'FF555555' } };
+    const border = { top: thin, left: thin, bottom: thin, right: thin };
+    const fill = argb => ({ type: 'pattern', pattern: 'solid', fgColor: { argb } });
+    const BLUE = 'FFDFE7F3', PALE = 'FFF6F8FB', GREY = 'FFE6E6E6', PINK = 'FFFDECEA', TITLE = 'FFC9D6EA';
+    const set = (r, c, v, st) => {
+      const cell = ws.getCell(r, c);
+      cell.value = v;
+      cell.border = border;
+      cell.alignment = Object.assign({ vertical: 'middle', wrapText: true }, (st && st.align) || {});
+      if (st && st.fill) cell.fill = fill(st.fill);
+      if (st && st.bold) cell.font = { bold: true, size: st.size || 10 };
+      else if (st && st.size) cell.font = { size: st.size };
+      return cell;
+    };
+    const center = { horizontal: 'center' };
+    const numOrText = v => { const x = U.num(v); return x === null || String(v).indexOf('/') >= 0 ? v : x; };
+
+    ws.columns = [{ width: 24 }, { width: 8 }, { width: 10 }, { width: 62 }, { width: 11 }, ...d.cols.map(() => ({ width: 7.5 })), { width: 11 }];
+    let r = 1;
+    ws.mergeCells(r, 1, r, lastCol); set(r, 1, d.title, { bold: true, size: 12, fill: TITLE, align: center }); r++;
+    if (d.subtitle) { ws.mergeCells(r, 1, r, lastCol); set(r, 1, d.subtitle, { align: center, fill: PALE }); r++; }
+    ['Indicatore', 'Punti', 'Descrittori', '', 'Punteggio'].forEach((h, i) => set(r, i + 1, h, { bold: true, fill: BLUE, align: center }));
+    ws.mergeCells(r, 3, r, 4);
+    d.cols.forEach((c, i) => set(r, 6 + i, c.nome, { bold: true, fill: BLUE, align: center }));
+    set(r, lastCol, d.lastHeader, { bold: true, fill: BLUE, align: center });
+    r++;
+
+    d.inds.forEach(row => {
+      const rs = row.ranges.length;
+      const r0 = r;
+      row.ranges.forEach((lv, k) => {
+        set(r + k, 1, k === 0 ? row.ind.nome : null, { bold: true, fill: PALE });
+        set(r + k, 2, k === 0 ? U.num(row.ind.max) : null, { align: center });
+        set(r + k, 3, lv.level.nome, { align: center });
+        set(r + k, 4, lv.level.descrittore || '', { size: 9 });
+        set(r + k, 5, Calc.rangeLabel(lv), { align: center });
+        row.cells.forEach((c, i) => set(r + k, 6 + i, k === 0 ? numOrText(c.v) : null, { align: center, fill: c.off ? GREY : c.ns ? PINK : null }));
+        set(r + k, lastCol, k === 0 ? numOrText(row.last) : null, { align: center });
+      });
+      if (rs > 1) {
+        [1, 2].concat(d.cols.map((_, i) => 6 + i), [lastCol]).forEach(c => ws.mergeCells(r0, c, r0 + rs - 1, c));
+      }
+      r += rs;
+    });
+
+    const footRow = (label, vals, last, f) => {
+      ws.mergeCells(r, 1, r, 5);
+      set(r, 1, label, { bold: true, fill: f || PALE });
+      for (let c = 2; c <= 5; c++) set(r, c, null, { fill: f || PALE });
+      vals.forEach((v, i) => set(r, 6 + i, numOrText(v), { bold: true, fill: f || PALE, align: center }));
+      set(r, lastCol, numOrText(last), { bold: true, fill: f || PALE, align: center });
+      r++;
+    };
+    footRow(d.student ? 'Punteggio massimo esercizio' : 'Punteggio esercizio', d.cols.map(c => U.fmt(c.peso)), U.fmt(d.totManual));
+    if (d.student) footRow('Punteggio ottenuto', d.cols.map(c => c.nonSvolto ? 'N.S.' : U.fmt(c.punti)), U.fmt(d.res.manuale));
+    const spanRow = (label, text, last, f) => {
+      ws.mergeCells(r, 1, r, 5); set(r, 1, label, { bold: true, fill: f });
+      for (let c = 2; c <= 5; c++) set(r, c, null, { fill: f });
+      if (last === undefined) {
+        ws.mergeCells(r, 6, r, lastCol); set(r, 6, text, { bold: true, fill: f, align: center });
+        for (let c = 7; c <= lastCol; c++) set(r, c, null, { fill: f });
+      } else {
+        if (n > 1) ws.mergeCells(r, 6, r, 5 + n);
+        set(r, 6, text, { fill: f });
+        for (let c = 7; c <= 5 + n; c++) set(r, c, null, { fill: f });
+        set(r, lastCol, last, { bold: true, fill: f, align: center });
+      }
+      r++;
+    };
+    if (d.closedLine) spanRow(d.closedLine.label, d.closedLine.text, d.closedLine.value, PALE);
+    spanRow('PUNTEGGIO TOTALE', '', d.total, BLUE);
+    spanRow('VOTO', d.voto, undefined, BLUE);
+    if (d.note) { r++; ws.mergeCells(r, 1, r, lastCol); ws.getCell(r, 1).value = d.note; ws.getCell(r, 1).font = { italic: true, size: 9 }; r++; }
+    if (d.info) {
+      r++;
+      d.info.forEach(([k, v]) => {
+        ws.getCell(r, 1).value = k; ws.getCell(r, 1).font = { bold: true };
+        ws.mergeCells(r, 2, r, 4); ws.getCell(r, 2).value = v;
+        r++;
+      });
+    }
+    return ws;
+  },
+
+  async xlsxBlob(build) {
+    const ExcelJS = await Libs.excel();
+    const wb = new ExcelJS.Workbook();
+    wb.creator = 'Griglie di valutazione';
+    build(wb);
+    const buf = await wb.xlsx.writeBuffer();
+    return new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  }
+};
+
+/* ---------------------------------------------------------------------
+ * Riepilogo della classe
+ * ------------------------------------------------------------------- */
+const Summary = {
+  /** Tutti gli esercizi che compaiono in almeno una versione usata. */
+  columns(s) {
+    const t = s.template;
+    const seen = new Map();
+    t.esercizi.forEach(e => seen.set(e.id, e.nome));
+    t.versioni.forEach(v => v.aggiunti.forEach(e => { if (s.studenti.some(st => st.versione === v.id)) seen.set(e.id, e.nome + ' (' + v.nome + ')'); }));
+    return [...seen.entries()].map(([id, nome]) => ({ id, nome }));
+  },
+
+  rows(s) {
+    const t = s.template;
+    return [...s.studenti].sort(U.compareStudents).map(st => {
+      if (st.assente) return { st, assente: true };
+      return { st, res: Calc.score(t, st.versione, st) };
+    });
+  },
+
+  async xlsx(s, withStudents) {
+    const t = s.template;
+    const cols = Summary.columns(s);
+    const rows = Summary.rows(s);
+    const hasClosed = t.chiuse.attive && t.chiuse.domande.length;
+    return Grid.xlsxBlob(wb => {
+      const used = new Set();
+      const ws = wb.addWorksheet(Grid.sheetName('Riepilogo', used));
+      const header = ['Cognome', 'Nome', 'Data', 'Versione', ...cols.map(c => c.nome)];
+      if (hasClosed) header.push('Domande chiuse');
+      header.push('Punteggio', 'Su', 'Voto', 'Voto arrotondato', 'Stato');
+      ws.addRow([Model.templateTitle(t) + ' — classe ' + (s.classe || '')]).font = { bold: true, size: 12 };
+      const hr = ws.addRow(header);
+      hr.font = { bold: true };
+      hr.eachCell(c => { c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFDFE7F3' } }; });
+      rows.forEach(({ st, res, assente }) => {
+        const line = [st.cognome, st.nome, U.dateIT(st.data || s.data), Model.versionName(t, st.versione)];
+        if (assente) {
+          cols.forEach(() => line.push(''));
+          if (hasClosed) line.push('');
+          line.push('', '', '', '', 'Assente');
+        } else {
+          cols.forEach(c => {
+            const x = res.esercizi[c.id];
+            line.push(!x ? '-' : x.nonSvolto ? 'N.S.' : U.round(x.punti, 2));
+          });
+          if (hasClosed) line.push(U.round(res.chiuse, 2));
+          line.push(U.round(res.totale, 2), U.round(res.max, 2), U.round(res.voto, 2), res.votoArr, res.completo ? 'Completa' : 'Incompleta');
+        }
+        ws.addRow(line);
+      });
+      ws.columns.forEach((c, i) => { c.width = i < 2 ? 18 : i < 4 ? 12 : 10; });
+      ws.views = [{ state: 'frozen', xSplit: 2, ySplit: 2 }];
+      if (withStudents) {
+        rows.filter(r => !r.assente).forEach(({ st }) => {
+          Grid.xlsxSheet(wb, Grid.sheetName(U.studentName(st), used), Grid.data(t, st.versione, st, s));
+        });
+      }
+    });
+  },
+
+  async pdf(s) {
+    const jsPDF = await Libs.pdf();
+    const t = s.template;
+    const cols = Summary.columns(s);
+    const hasClosed = t.chiuse.attive && t.chiuse.domande.length;
+    const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(12);
+    doc.text('Riepilogo — ' + Model.templateTitle(t) + ' — classe ' + (s.classe || ''), 10, 12);
+    const head = [['Studente', 'Data', 'Versione', ...cols.map(c => c.nome), ...(hasClosed ? ['Chiuse'] : []), 'Punteggio', 'Voto', 'Arr.']];
+    const body = Summary.rows(s).map(({ st, res, assente }) => {
+      if (assente) return [U.studentName(st), U.dateIT(st.data || s.data), Model.versionName(t, st.versione), { content: 'Assente', colSpan: cols.length + (hasClosed ? 1 : 0) + 3, styles: { halign: 'center', textColor: [150, 150, 150] } }];
+      return [
+        U.studentName(st), U.dateIT(st.data || s.data), Model.versionName(t, st.versione),
+        ...cols.map(c => { const x = res.esercizi[c.id]; return !x ? '-' : x.nonSvolto ? 'N.S.' : U.fmt(x.punti); }),
+        ...(hasClosed ? [U.fmt(res.chiuse)] : []),
+        U.fmt(res.totale) + '/' + U.fmt(res.max), U.fmtFixed(res.voto, 2), U.fmt(res.votoArr, 1)
+      ];
+    });
+    doc.autoTable({ head, body, startY: 16, theme: 'grid', styles: { fontSize: 7.5, cellPadding: 1.2, halign: 'center' }, columnStyles: { 0: { halign: 'left', cellWidth: 40 } }, headStyles: { fillColor: [223, 231, 243], textColor: [17, 17, 17] } });
+    return doc.output('blob');
+  }
+};
+
+// ---- ui-common.js ----
+/* =====================================================================
+ * ui-common.js — stato dell'app, azioni condivise, componenti base
+ * ===================================================================== */
+
+const { render, useState, useEffect, useRef, useMemo } = htmPreact;
+
+/**
+ * html`` di htm, con un controllo: se in posizione di tag arriva qualcosa che non è un
+ * componente (funzione) o un nome di tag, l'errore dice quale modello e quale valore,
+ * invece del generico "createElement: tag name ''" di Preact.
+ */
+const _checkedTemplates = new WeakSet();
+function html(strings) {
+  if (!_checkedTemplates.has(strings)) {
+    _checkedTemplates.add(strings);
+    // un "<" che non apre un tag (né un componente interpolato) farebbe creare a htm un elemento senza nome
+    strings.forEach((s, i) => {
+      const re = /<(?=[^a-zA-Z\/])/g;
+      let m;
+      while ((m = re.exec(s))) {
+        throw new Error('Modello alterato: carattere «<» fuori posto in «' + s.slice(Math.max(0, m.index - 50), m.index + 40).replace(/\s+/g, ' ') + '»');
+      }
+      if (i < strings.length - 1 && /<\s+$/.test(s)) throw new Error('Modello alterato vicino a «' + s.slice(-50) + '»');
+    });
+  }
+  for (let i = 1; i < arguments.length; i++) {
+    const v = arguments[i];
+    if (/<\/?$/.test(strings[i - 1]) && (typeof v !== 'function' && (typeof v !== 'string' || !v))) {
+      throw new Error('Componente non valido (' + (v === '' ? 'stringa vuota' : Object.prototype.toString.call(v)) + ') nel modello: «' +
+        strings[i - 1].replace(/\s+/g, ' ').slice(-80) + '…' + String(strings[i] || '').replace(/\s+/g, ' ').slice(0, 60) + '»');
+    }
+  }
+  return htmPreact.html.apply(null, arguments);
+}
+
+const S = {
+  view: 'home',
+  // verifica in modifica
+  tpl: null, tplDirty: false, builderTab: 'generale', editVersion: null, previewVersion: 'std',
+  // sessione di valutazione (sesRev / savedRev: modifiche fatte / modifiche già scaricate in JSON)
+  ses: null, sesRev: 0, savedRev: 0, saveState: 'idle', sesTab: 'classe', cur: null,
+  busy: null, toast: null, dialog: null
+};
+
+let _bump = () => {};
+function refresh() { _bump(); }
+
+/* ---------------- bozza locale (recupero in caso di chiusura) ---------------- */
+const Draft = {
+  KEY: 'gv_draft_v1',
+  timer: null,
+  save() {
+    clearTimeout(this.timer);
+    this.timer = setTimeout(() => {
+      try {
+        localStorage.setItem(this.KEY, JSON.stringify({
+          savedAt: new Date().toISOString(),
+          tpl: S.tplDirty ? S.tpl : null,
+          ses: S.ses && S.sesRev !== S.savedRev ? S.ses : null
+        }));
+      } catch (e) { /* spazio esaurito o storage bloccato: si ignora */ }
+      if (S.view === 'home') refresh();
+    }, 400);
+  },
+  read() { try { const d = JSON.parse(localStorage.getItem(this.KEY) || 'null'); return d && (d.tpl || d.ses) ? d : null; } catch (e) { return null; } },
+  clear() { try { localStorage.removeItem(this.KEY); } catch (e) { /* ignora */ } }
+};
+
+/* ---------------- notifiche ---------------- */
+let _toastTimer = null;
+function toast(msg, kind) {
+  S.toast = { msg, kind: kind || 'ok' };
+  clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(() => { S.toast = null; refresh(); }, kind === 'error' ? 7000 : 3500);
+  refresh();
+}
+
+/** Conferma dentro la pagina (window.confirm() in alcuni contesti viene bloccato). */
+function ask(msg, okLabel, danger) {
+  return new Promise(resolve => {
+    S.dialog = { msg, okLabel: okLabel || 'Conferma', danger: !!danger, resolve };
+    refresh();
+  });
+}
+
+function closeDialog(answer) {
+  const d = S.dialog;
+  S.dialog = null;
+  refresh();
+  if (d) d.resolve(answer);
+}
+
+function Dialog() {
+  const d = S.dialog;
+  const okRef = useRef(null);
+  useEffect(() => { if (okRef.current) okRef.current.focus(); }, [d]);
+  if (!d) return null;
+  return html`<div class="modal-back" onClick=${e => { if (e.target === e.currentTarget) closeDialog(false); }}
+    onKeyDown=${e => { if (e.key === 'Escape') closeDialog(false); }}>
+    <div class="modal" role="dialog" aria-modal="true">
+      <p>${d.msg}</p>
+      <div class="row gap end-row">
+        <button class="btn" onClick=${() => closeDialog(false)}>Annulla</button>
+        <button ref=${okRef} class=${'btn ' + (d.danger ? 'danger-solid' : 'primary')} onClick=${() => closeDialog(true)}>${d.okLabel}</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+async function withBusy(label, fn) {
+  S.busy = label; refresh();
+  try { return await fn(); }
+  catch (e) { console.error(e); toast(e.message || String(e), 'error'); }
+  finally { S.busy = null; refresh(); }
+}
+
+/* ---------------- modifiche ---------------- */
+function changedTpl() {
+  S.tplDirty = true;
+  S.tpl.modificato = new Date().toISOString();
+  Draft.save();
+  refresh();
+}
+
+function changedSes() {
+  S.sesRev++;
+  S.ses.modificato = new Date().toISOString();
+  S.saveState = 'pending';
+  Draft.save();
+  refresh();
+}
+
+/* ---------------- salvataggio: file JSON scaricati ---------------- */
+function saveTemplate() {
+  exportJSON(S.tpl, Model.templateFileName(S.tpl));
+  S.tplDirty = false; Draft.save();
+  toast('File JSON della verifica scaricato');
+}
+
+function saveSession() {
+  if (!S.ses) return;
+  exportJSON(S.ses, Model.sessionFileName(S.ses));
+  S.savedRev = S.sesRev; S.saveState = 'saved'; Draft.save();
+  toast('File JSON della valutazione scaricato');
+}
+
+function exportJSON(obj, name) {
+  Files.download(new Blob([JSON.stringify(obj, null, 1)], { type: 'application/json' }), name);
+}
+
+async function importJSONFile() {
+  const f = await Files.pickFile('.json,application/json');
+  if (!f) return null;
+  try { return JSON.parse(await f.text()); }
+  catch (e) { toast('Il file non è un JSON valido', 'error'); return null; }
+}
+
+/** Apre una verifica; fromFile: appena letta da un JSON (quindi senza modifiche da salvare). */
+function openTemplateObj(obj, fromFile) {
+  S.tpl = Model.normalizeTemplate(obj);
+  S.tplDirty = !fromFile;
+  S.builderTab = 'generale';
+  S.editVersion = null;
+  S.previewVersion = 'std';
+  S.view = 'builder';
+  refresh();
+}
+
+/** Apre una valutazione; fromFile: appena letta da un JSON. */
+function openSessionObj(obj, fromFile) {
+  S.ses = Model.normalizeSession(obj);
+  S.sesRev = fromFile ? 0 : 1;
+  S.savedRev = 0;
+  S.saveState = fromFile ? 'saved' : 'pending';
+  S.sesTab = S.ses.studenti.length ? 'correzione' : 'classe';
+  S.cur = S.ses.studenti.length ? [...S.ses.studenti].sort(U.compareStudents)[0].id : null;
+  S.view = 'session';
+  refresh();
+}
+
+function startSession(tplObj) {
+  const ses = Model.newSession(Model.normalizeTemplate(tplObj), null);
+  openSessionObj(ses, false);
+  S.sesTab = 'classe';
+  refresh();
+}
+
+/** Scarica un file di export. */
+function deliver(blob, name) {
+  Files.download(blob, name);
+}
+
+async function leaveTo(view) {
+  if (S.view === 'builder' && S.tplDirty && !(await ask('Ci sono modifiche alla verifica non scaricate in JSON. Uscire comunque? (Resta una bozza nel browser.)', 'Esci'))) return;
+  if (S.view === 'session' && S.sesRev !== S.savedRev && !(await ask('La valutazione ha modifiche non scaricate in JSON. Uscire comunque? (Resta una bozza nel browser.)', 'Esci'))) return;
+  S.view = view;
+  refresh();
+}
+
+/* ---------------- componenti base ---------------- */
+
+/** Campo numerico che accetta la virgola e non perde il cursore mentre si scrive. */
+function NumInput(p) {
+  const show = v => (v === null || v === undefined || v === '') ? '' : U.fmt(U.num(v), 4);
+  const [txt, setTxt] = useState(show(p.value));
+  const focused = useRef(false);
+  useEffect(() => { if (!focused.current) setTxt(show(p.value)); }, [p.value]);
+  const n = U.num(txt);
+  const invalid = txt.trim() !== '' && (n === null || (p.min !== undefined && n < p.min) || (p.max !== undefined && n > p.max));
+  return html`<input
+    class=${'num ' + (invalid ? 'invalid ' : '') + (p.class || '')}
+    inputmode="decimal" autocomplete="off"
+    value=${txt} title=${p.title || ''}
+    disabled=${p.disabled} data-nav=${p.nav} data-r=${p.row} data-c=${p.col}
+    style=${p.width ? 'width:' + p.width : ''}
+    onFocus=${e => { focused.current = true; e.target.select(); if (p.onFocus) p.onFocus(); }}
+    onBlur=${() => { focused.current = false; setTxt(show(p.value)); if (p.onBlur) p.onBlur(); }}
+    onInput=${e => {
+      const t = e.target.value; setTxt(t);
+      const x = U.num(t);
+      if (t.trim() === '') p.onChange(p.allowEmpty === false ? 0 : null);
+      else if (x !== null) p.onChange(x);
+    }}
+    onKeyDown=${p.onKeyDown} />`;
+}
+
+function Field(p) {
+  return html`<label class=${'field ' + (p.class || '')}>
+    <span class="field-label">${p.label}</span>
+    ${p.children}
+    ${p.hint && html`<span class="hint">${p.hint}</span>`}
+  </label>`;
+}
+
+function TextInput(p) {
+  return html`<input type="text" class=${p.class || ''} value=${p.value || ''}
+    onInput=${e => p.onInput(e.target.value)} style=${p.width ? 'width:' + p.width : ''} />`;
+}
+
+function TextArea(p) {
+  return html`<textarea class=${p.class || ''} rows=${p.rows || 2} value=${p.value || ''}
+    onInput=${e => p.onInput(e.target.value)}></textarea>`;
+}
+
+function Tabs(p) {
+  return html`<nav class="tabs">${p.items.map(it => html`
+    <button class=${'tab ' + (p.value === it.id ? 'active' : '')} onClick=${() => p.onChange(it.id)}>
+      ${it.label}${it.badge ? html`<span class=${'badge ' + (it.badgeKind || '')}>${it.badge}</span>` : null}
+    </button>`)}</nav>`;
+}
+
+function Warnings(p) {
+  if (!p.list || !p.list.length) return null;
+  return html`<div class="alert warn">${p.list.map(w => html`<div>⚠ ${w}</div>`)}</div>`;
+}
+
+function IconBtn(p) {
+  return html`<button class=${'icon-btn ' + (p.class || '')} title=${p.title} disabled=${p.disabled} onClick=${p.onClick}>${p.icon}</button>`;
+}
+
+function moveItem(arr, i, d) {
+  const j = i + d;
+  if (j < 0 || j >= arr.length) return;
+  const x = arr[i]; arr[i] = arr[j]; arr[j] = x;
+}
+
+// ---- ui-builder.js ----
+/* =====================================================================
+ * ui-builder.js — creazione / modifica della verifica
+ * ===================================================================== */
+
+function Builder() {
+  const t = S.tpl;
+  const stdWarn = Calc.warnings(t, 'std');
+  const tabs = [
+    { id: 'generale', label: 'Dati generali' },
+    { id: 'livelli', label: 'Livelli predefiniti' },
+    { id: 'indicatori', label: 'Indicatori', badge: t.indicatori.length || null },
+    { id: 'esercizi', label: 'Esercizi', badge: t.esercizi.length || null, badgeKind: stdWarn.length ? 'warn' : '' },
+    { id: 'chiuse', label: 'Domande chiuse', badge: t.chiuse.attive ? t.chiuse.domande.length : null },
+    { id: 'versioni', label: 'Versioni', badge: t.versioni.length || null },
+    { id: 'griglia', label: 'Griglia ed export' }
+  ];
+  const body = {
+    generale: BGenerale, livelli: BLivelli, indicatori: BIndicatori, esercizi: BEsercizi,
+    chiuse: BChiuse, versioni: BVersioni, griglia: BGriglia
+  }[S.builderTab];
+  return html`<div class="page">
+    <div class="page-head">
+      <div>
+        <div class="eyebrow">Creazione verifica</div>
+        <h1>${Model.templateTitle(t)}</h1>
+        <div class=${'small ' + (S.tplDirty ? 'save-pending' : 'muted')}>${S.tplDirty ? 'Modifiche non ancora scaricate in JSON' : 'Salvata (JSON scaricato)'}</div>
+      </div>
+      <div class="actions">
+        <button class="btn primary" onClick=${saveTemplate}>Salva (scarica JSON)</button>
+        <button class="btn" onClick=${async () => {
+          if (S.tplDirty && !(await ask('La verifica ha modifiche non salvate. La valutazione userà la versione attuale. Continuare?', 'Continua'))) return;
+          startSession(U.clone(t));
+        }}>Valuta una classe →</button>
+      </div>
+    </div>
+    <${Tabs} items=${tabs} value=${S.builderTab} onChange=${v => { S.builderTab = v; refresh(); }} />
+    <div class="panel"><${body} t=${t} /></div>
+  </div>`;
+}
+
+/* ---------------- Dati generali ---------------- */
+function BGenerale({ t }) {
+  const set = (k, v) => { t[k] = v; changedTpl(); };
+  return html`
+    <div class="grid2">
+      <${Field} label="Materia"><${TextInput} value=${t.materia} onInput=${v => set('materia', v)} /><//>
+      <${Field} label="Argomento"><${TextInput} value=${t.argomento} onInput=${v => set('argomento', v)} /><//>
+    </div>
+    <${Field} label="Intestazione (facoltativa)" hint="Seconda riga della griglia, es. il dipartimento o la scuola.">
+      <${TextInput} value=${t.intestazione} onInput=${v => set('intestazione', v)} />
+    <//>
+    <${Field} label="Descrizione (solo per te, non compare negli export)">
+      <${TextArea} rows="3" value=${t.descrizione} onInput=${v => set('descrizione', v)} />
+    <//>
+    <div class="grid3">
+      <div class="field">
+        <span class="field-label">Punteggio totale della verifica</span>
+        <span class="total-big">${U.fmt(Calc.total(t, 'std'))}</span>
+        <span class="hint">Calcolato: esercizi ${U.fmt(Calc.manualTotal(t, 'std'))}${Calc.closed(t, 'std').max ? ' + domande chiuse ' + U.fmt(Calc.closed(t, 'std').max) : ''}.
+          Gli esercizi valgono la somma dei massimi degli indicatori${Calc.standardWeights(t).biasSum ? ', più le correzioni' : ''}.</span>
+      </div>
+      <${Field} label="Voto minimo" hint=${Calc.votoRule(t, Calc.total(t, 'std'))}>
+        <${NumInput} value=${t.votoMin} min=${0} max=${10} onChange=${v => set('votoMin', v === null ? 0 : U.clamp(v, 0, 10))} width="80px" />
+      <//>
+      <${Field} label="Uso del voto minimo">
+        <select value=${t.votoModo} disabled=${!(U.num(t.votoMin) > 0)} onChange=${e => set('votoModo', e.target.value)}>
+          <option value="soglia">Soglia: sotto il minimo si assegna il minimo</option>
+          <option value="lineare">Scala: 0 punti = voto minimo, punteggio pieno = 10</option>
+        </select>
+      <//>
+    </div>
+    <div class="grid2">
+      <${Field} label="Nota a piè di griglia">
+        <${TextInput} value=${t.notaPiede} onInput=${v => set('notaPiede', v)} />
+        <select value=${t.notaPiedeQuando} onChange=${e => set('notaPiedeQuando', e.target.value)}>
+          <option value="bes">Mostra solo nelle versioni DSA / NAI / PEI</option>
+          <option value="sempre">Mostra sempre</option>
+          <option value="mai">Non mostrare</option>
+        </select>
+      <//>
+    </div>`;
+}
+
+/* ---------------- Livelli ---------------- */
+
+/** Riordina i livelli dal più alto e fissa il primo al 100 %. */
+function tidyLevels(owner) {
+  owner.livelli = Calc.sortedLevels(owner.livelli);
+  if (owner.livelli.length) owner.livelli[0].max = 100;
+}
+
+/**
+ * Editor di una scala di livelli (della verifica o di un indicatore).
+ * Si modifica la percentuale massima di ogni livello; il più alto vale sempre fino al 100 %.
+ */
+function LevelsEditor({ owner, max, withDesc }) {
+  const levels = owner.livelli;
+  const ranges = max ? Calc.levelRanges(levels, max) : [];
+  const rangeOf = l => ranges.find(r => r.level === l);
+  return html`
+    <table class="tbl compact levels-tbl">
+      <thead><tr><th>Livello</th><th>Fino al</th>${max ? html`<th>Punti</th>` : null}${withDesc ? html`<th>Descrittore</th>` : null}<th></th></tr></thead>
+      <tbody>${levels.map((l, i) => {
+        const r = rangeOf(l);
+        return html`<tr key=${l.id}>
+          <td class="lv-name"><${TextInput} value=${l.nome} onInput=${v => { l.nome = v; changedTpl(); }} /></td>
+          <td class="lv-pct nowrap">${i === 0 ? html`<span class="muted">100 %</span>` : html`<${NumInput} value=${l.max} min=${0} max=${99.99} width="64px"
+            onChange=${v => { l.max = v === null ? 0 : v; changedTpl(); }} onBlur=${() => { tidyLevels(owner); changedTpl(); }} /> %`}</td>
+          ${max ? html`<td class=${'nowrap c ' + (r && r.empty ? 'bad' : '')}>${r ? (r.empty ? 'vuoto' : Calc.rangeLabel(r)) : ''}</td>` : null}
+          ${withDesc ? html`<td><${TextArea} rows="2" value=${l.descrittore} onInput=${v => { l.descrittore = v; changedTpl(); }} /></td>` : null}
+          <td><${IconBtn} icon="✕" title="Elimina livello" disabled=${levels.length <= 1} onClick=${() => {
+            owner.livelli = levels.filter(x => x !== l); tidyLevels(owner); changedTpl();
+          }} /></td>
+        </tr>`;
+      })}</tbody>
+    </table>
+    <button class="btn small" onClick=${() => {
+      const low = levels[levels.length - 1];
+      levels.push({ id: U.uid('lv'), nome: '', max: low ? Math.floor((U.num(low.max) || 0) / 2) : 100, descrittore: '' });
+      tidyLevels(owner); changedTpl();
+    }}>+ Aggiungi livello</button>`;
+}
+
+/** Fasce percentuali di una scala: [{ level, text }] dal livello più alto. */
+function percentBands(levels) {
+  const sorted = Calc.sortedLevels(levels);
+  return sorted.map((l, i) => {
+    const top = i === 0 ? 100 : (U.num(l.max) || 0);
+    const next = sorted[i + 1];
+    const text = next
+      ? 'oltre ' + U.fmt(U.num(next.max) || 0) + ' % e fino a ' + U.fmt(top) + ' %'
+      : 'da 0 % a ' + U.fmt(top) + ' %';
+    return { level: l, text, empty: next && (U.num(next.max) || 0) >= top };
+  });
+}
+
+function BLivelli({ t }) {
+  return html`
+    <p class="muted">Questa è la scala che ricevono i nuovi indicatori. Ogni indicatore può poi avere livelli propri (numero, nomi e percentuali) nella scheda «Indicatori».
+      Per ogni livello indichi fino a che percentuale del punteggio massimo arriva; il livello più alto arriva sempre al 100 %.</p>
+    <div style="max-width:560px"><${LevelsEditor} owner=${t} /></div>
+    <h3>Riepilogo fasce</h3>
+    <table class="tbl compact" style="max-width:560px">
+      <thead><tr><th>Livello</th><th>Fascia del punteggio massimo</th></tr></thead>
+      <tbody>${percentBands(t.livelli).map(b => html`<tr key=${b.level.id}>
+        <td>${b.level.nome || html`<span class="muted">senza nome</span>`}</td>
+        <td class=${b.empty ? 'bad' : ''}>${b.empty ? 'vuota: controlla le percentuali' : b.text}</td>
+      </tr>`)}</tbody>
+    </table>
+    ${t.indicatori.length ? html`<button class="btn" onClick=${async () => {
+      if (!(await ask('Sostituire i livelli di tutti gli indicatori con questa scala? I descrittori dei livelli con lo stesso nome vengono mantenuti.', 'Applica'))) return;
+      t.indicatori.forEach(ind => applyDefaultLevels(t, ind));
+      changedTpl();
+      toast(t.indicatori.length === 1 ? 'Scala applicata all’indicatore' : 'Scala applicata a ' + t.indicatori.length + ' indicatori');
+    }}>Applica a tutti gli indicatori</button>` : null}`;
+}
+
+function applyDefaultLevels(t, ind) {
+  const old = ind.livelli || [];
+  ind.livelli = Model.copyLevels(t.livelli, false);
+  ind.livelli.forEach(l => {
+    const same = old.find(o => (o.nome || '').trim().toLowerCase() === (l.nome || '').trim().toLowerCase());
+    if (same) l.descrittore = same.descrittore || '';
+  });
+}
+
+/* ---------------- Indicatori ---------------- */
+function BIndicatori({ t }) {
+  const totMax = U.sum(t.indicatori, i => U.num(i.max) || 0);
+  return html`
+    <p class="muted">Il punteggio massimo è la scala su cui inserirai i voti in correzione (es. 0–20) e definisce il peso dell'indicatore nella verifica.
+      Ogni indicatore ha i suoi livelli: puoi aggiungerne, toglierne e cambiarne le percentuali.</p>
+    ${t.indicatori.map((ind, idx) => html`<div class="card" key=${ind.id}>
+      <div class="row gap">
+        <${Field} label=${'Indicatore ' + (idx + 1)} class="grow"><${TextInput} value=${ind.nome} onInput=${v => { ind.nome = v; changedTpl(); }} /><//>
+        <${Field} label="Punteggio massimo"><${NumInput} value=${ind.max} min=${1} width="90px" onChange=${v => { ind.max = v === null ? 0 : Math.round(v); changedTpl(); }} /><//>
+        <div class="field"><span class="field-label">Peso</span><span class="pill">${totMax ? U.fmt((U.num(ind.max) || 0) / totMax * 100, 1) + ' %' : '—'}</span></div>
+        <div class="row end">
+          <${IconBtn} icon="↑" title="Sposta su" disabled=${idx === 0} onClick=${() => { moveItem(t.indicatori, idx, -1); changedTpl(); }} />
+          <${IconBtn} icon="↓" title="Sposta giù" disabled=${idx === t.indicatori.length - 1} onClick=${() => { moveItem(t.indicatori, idx, 1); changedTpl(); }} />
+          <${IconBtn} icon="✕" title="Elimina indicatore" onClick=${async () => {
+            if (!(await ask('Eliminare l’indicatore «' + (ind.nome || 'senza nome') + '»? Verrà tolto anche dagli esercizi.', 'Elimina', true))) return;
+            t.indicatori = t.indicatori.filter(x => x !== ind);
+            const strip = e => { e.indicatori = e.indicatori.filter(x => x !== ind.id); };
+            t.esercizi.forEach(strip);
+            t.versioni.forEach(v => v.aggiunti.forEach(strip));
+            changedTpl();
+          }} />
+        </div>
+      </div>
+      <${LevelsEditor} owner=${ind} max=${U.num(ind.max) || 0} withDesc=${true} />
+      <button class="btn small" title="Sostituisce i livelli con la scala predefinita della verifica" onClick=${async () => {
+        if (!(await ask('Sostituire i livelli di questo indicatore con la scala predefinita? I descrittori dei livelli con lo stesso nome vengono mantenuti.', 'Sostituisci'))) return;
+        applyDefaultLevels(t, ind); changedTpl();
+      }}>Usa la scala predefinita</button>
+      ${Calc.levelIssues(ind.livelli, U.num(ind.max) || 0).length ? html`<${Warnings} list=${Calc.levelIssues(ind.livelli, U.num(ind.max) || 0)} />` : null}
+    </div>`)}
+    <button class="btn" onClick=${() => { t.indicatori.push(Model.newIndicator(t)); changedTpl(); }}>+ Aggiungi indicatore</button>`;
+}
+
+/* ---------------- Esercizi ---------------- */
+function ExerciseRow({ t, ex, idx, list, weight, extra }) {
+  return html`<tr key=${ex.id}>
+    <td class="nowrap">
+      <${IconBtn} icon="↑" title="Sposta su" disabled=${idx === 0} onClick=${() => { moveItem(list, idx, -1); changedTpl(); }} />
+      <${IconBtn} icon="↓" title="Sposta giù" disabled=${idx === list.length - 1} onClick=${() => { moveItem(list, idx, 1); changedTpl(); }} />
+    </td>
+    <td><${TextInput} value=${ex.nome} width="80px" onInput=${v => { ex.nome = v; changedTpl(); }} /></td>
+    <td><${TextInput} value=${ex.testo} onInput=${v => { ex.testo = v; changedTpl(); }} /></td>
+    ${t.indicatori.map(i => html`<td class="c"><input type="checkbox" checked=${ex.indicatori.includes(i.id)} title=${i.nome}
+      onChange=${e => { ex.indicatori = e.target.checked ? t.indicatori.filter(x => x.id === i.id || ex.indicatori.includes(x.id)).map(x => x.id) : ex.indicatori.filter(x => x !== i.id); changedTpl(); }} /></td>`)}
+    ${extra}
+    <td><${NumInput} value=${ex.bias} width="56px" onChange=${v => { ex.bias = v === null ? 0 : Math.round(v); changedTpl(); }} /></td>
+    <td class="c strong">${U.fmt(weight)}</td>
+    <td><${IconBtn} icon="✕" title="Elimina esercizio" onClick=${() => { list.splice(idx, 1); changedTpl(); }} /></td>
+  </tr>`;
+}
+
+function BEsercizi({ t }) {
+  const std = Calc.standardWeights(t);
+  const [nAdd, setNAdd] = useState(1);
+  return html`
+    <p class="muted">Seleziona gli indicatori coinvolti in ogni esercizio. Il punteggio di ogni indicatore si divide in parti uguali tra gli esercizi che lo coprono:
+      il «grezzo» di un esercizio è la somma di queste parti (es. un indicatore da 20 coperto da 4 esercizi vale 5 in ciascuno).
+      Il grezzo viene arrotondato a un intero («base») senza cambiare il totale. La <b>correzione</b> (il tuo bias) aggiunge o toglie punti per pesare la difficoltà:
+      se le correzioni non sommano a zero cambia anche il totale della verifica.</p>
+    <div class="table-scroll">
+    <table class="tbl compact">
+      <thead><tr>
+        <th></th><th>Nome</th><th>Consegna</th>
+        ${t.indicatori.map(i => html`<th class="vert" title=${i.nome}><span>${i.nome || '(senza nome)'}</span></th>`)}
+        <th>Grezzo</th><th>Base</th><th>Correzione</th><th>Peso</th><th></th>
+      </tr></thead>
+      <tbody>
+        ${t.esercizi.map((ex, idx) => html`<${ExerciseRow} key=${ex.id} t=${t} ex=${ex} idx=${idx} list=${t.esercizi} weight=${std.rows[ex.id].peso}
+          extra=${html`<td class="c muted">${U.fmt(std.rows[ex.id].raw)}</td><td class="c">${U.fmt(std.rows[ex.id].base)}</td>`} />`)}
+      </tbody>
+      <tfoot><tr>
+        <td colspan=${3 + t.indicatori.length} class="right">Totale</td>
+        <td class="c muted">${U.fmt(std.R)}</td><td class="c">${U.fmt(Math.round(std.R))}</td>
+        <td class=${'c ' + (std.biasSum ? 'bad' : '')}>${std.biasSum > 0 ? '+' : ''}${U.fmt(std.biasSum)}</td>
+        <td class="c strong">${U.fmt(Calc.manualTotal(t, 'std'))}</td><td></td>
+      </tr></tfoot>
+    </table>
+    </div>
+    <div class="row gap wrap">
+      <button class="btn" onClick=${() => { for (let k = 0; k < Math.max(1, nAdd); k++) t.esercizi.push(Model.newExercise(t)); changedTpl(); }}>+ Aggiungi</button>
+      <${NumInput} value=${nAdd} min=${1} width="56px" onChange=${v => setNAdd(Math.max(1, Math.round(v || 1)))} /> <span class="muted">esercizi</span>
+      <span class="spacer"></span>
+      <span class="total-line">Totale verifica: ${U.fmt(Calc.total(t, 'std'))}${Calc.closed(t, 'std').max ? ' (esercizi ' + U.fmt(Calc.manualTotal(t, 'std')) + ' + domande chiuse ' + U.fmt(Calc.closed(t, 'std').max) + ')' : ''}</span>
+    </div>
+    <${Warnings} list=${Calc.warnings(t, 'std')} />
+    <${MatrixView} t=${t} vId="std" />`;
+}
+
+function MatrixView({ t, vId }) {
+  const M = Calc.matrix(t, vId);
+  if (!M.rows.length || !M.used.length) return null;
+  return html`<div class="card">
+    <div class="row gap wrap">
+      <h3 class="grow">Distribuzione dei punti</h3>
+      <label class="field inline"><span class="field-label">Ripartizione dentro l'esercizio</span>
+        <select value=${t.distribuzione} onChange=${e => { t.distribuzione = e.target.value; changedTpl(); }}>
+          <option value="proporzionale">Proporzionale alle quote degli indicatori</option>
+          <option value="bilanciata">Bilanciata sui pesi degli indicatori</option>
+        </select>
+      </label>
+    </div>
+    <p class="muted small">Ogni casella è il valore in punti di quell'indicatore in quell'esercizio. La somma per riga dà il punteggio dell'esercizio, la somma per colonna il peso effettivo dell'indicatore: i due totali coincidono sempre.
+      ${t.distribuzione === 'bilanciata' ? ' La ripartizione bilanciata modifica le caselle in modo che ogni indicatore pesi quanto previsto.' : ' Arrotondamenti e correzioni possono far scostare un po’ il peso effettivo di un indicatore da quello previsto: la modalità bilanciata lo riallinea.'}</p>
+    <div class="table-scroll">
+    <table class="tbl compact matrix">
+      <thead><tr><th>Esercizio</th>${M.used.map(i => html`<th>${i.nome}</th>`)}<th>Peso</th></tr></thead>
+      <tbody>${M.rows.map(r => html`<tr>
+        <td>${r.ex.nome}${r.ex.aggiunto ? html` <span class="tag">aggiunto</span>` : null}</td>
+        ${M.used.map(i => html`<td class=${'c ' + (r.cells[i.id] === undefined ? 'off' : '')}>${r.cells[i.id] === undefined ? '–' : U.fmt(r.cells[i.id])}</td>`)}
+        <td class="c strong">${U.fmt(r.peso)}</td>
+      </tr>`)}</tbody>
+      <tfoot>
+        <tr><td>Peso effettivo</td>${M.used.map(i => html`<td class="c strong">${U.fmt(M.eff[i.id])}</td>`)}<td class="c strong">${U.fmt(M.Tm)}</td></tr>
+        <tr><td class="muted">Peso previsto</td>${M.used.map(i => html`<td class=${'c muted ' + (Math.abs(M.eff[i.id] - M.nominal[i.id]) > 0.05 ? 'bad' : '')}>${U.fmt(M.nominal[i.id])}</td>`)}<td></td></tr>
+      </tfoot>
+    </table>
+    </div>
+  </div>`;
+}
+
+/* ---------------- Domande chiuse ---------------- */
+function BChiuse({ t }) {
+  const c = t.chiuse;
+  const [n, setN] = useState(10);
+  const [pts, setPts] = useState(1);
+  const C = Calc.closed(t, 'std');
+  return html`
+    <label class="check"><input type="checkbox" checked=${c.attive} onChange=${e => { c.attive = e.target.checked; changedTpl(); }} /> La verifica contiene domande a risposta chiusa</label>
+    ${c.attive ? html`
+      <p class="muted">Le domande chiuse formano un blocco a sé: il loro punteggio si somma a quello degli esercizi valutati con la griglia.
+        Punteggio totale ${U.fmt(Calc.total(t, 'std'))} = esercizi ${U.fmt(Calc.manualTotal(t, 'std'))} + domande chiuse ${U.fmt(C.max)}.</p>
+      <div class="card row gap wrap">
+        <span>Genera</span><${NumInput} value=${n} min=${1} width="60px" onChange=${v => setN(Math.max(1, Math.round(v || 1)))} />
+        <span>domande da</span><${NumInput} value=${pts} min=${0} width="60px" onChange=${v => setPts(v || 0)} /><span>punti</span>
+        <button class="btn" onClick=${async () => {
+          const composte = c.domande.filter(q => Calc.isComposite(q));
+          if (c.domande.length > composte.length && !(await ask('Sostituire le domande a risposta singola esistenti? Le risposte composte restano.', 'Sostituisci'))) return;
+          c.domande = Array.from({ length: n }, (_, k) => ({ id: U.uid('q'), nome: 'D' + (k + 1), tipo: 'singola', punti: pts }))
+            .concat(composte.map((q, k) => Object.assign(q, { nome: /^D\d+$/.test(q.nome) ? 'D' + (n + k + 1) : q.nome })));
+          changedTpl();
+        }}>Genera</button>
+      </div>
+      <div class="grid3">
+        <${Field} label="Punti per risposta errata" hint="Solo domande a risposta singola. Anche negativo, es. -0,25"><${NumInput} value=${c.errata} width="90px" onChange=${v => { c.errata = v || 0; changedTpl(); }} /><//>
+        <${Field} label="Punti per risposta non data" hint="Solo domande a risposta singola."><${NumInput} value=${c.nonData} width="90px" onChange=${v => { c.nonData = v || 0; changedTpl(); }} /><//>
+        <label class="check"><input type="checkbox" checked=${c.minimoZero} onChange=${e => { c.minimoZero = e.target.checked; changedTpl(); }} /> Il blocco non scende sotto zero</label>
+      </div>
+      <p class="muted small">Le domande a <b>risposta composta</b> (associazioni, cloze, completamenti, più risposte da indicare…) hanno più parti
+        e danno un punteggio parziale: punti × parti corrette / parti totali (es. 4 punti, 1 parte corretta su 4 = 1 punto).
+        In correzione inserisci solo quante parti sono corrette.</p>
+      <table class="tbl compact" style="max-width:640px">
+        <thead><tr><th>Domanda</th><th>Tipo</th><th>Parti</th><th>Punti</th><th></th></tr></thead>
+        <tbody>${c.domande.map((q, i) => html`<tr key=${q.id}>
+          <td><${TextInput} value=${q.nome} onInput=${v => { q.nome = v; changedTpl(); }} /></td>
+          <td><select value=${Calc.isComposite(q) ? 'composta' : 'singola'} onChange=${e => {
+            q.tipo = e.target.value;
+            if (q.tipo === 'composta' && !q.parti) q.parti = Calc.partsOf(q) > 1 ? Calc.partsOf(q) : 4;
+            delete q.coppie;
+            changedTpl();
+          }}>
+            <option value="singola">Risposta singola</option>
+            <option value="composta">Risposta composta</option>
+          </select></td>
+          <td>${Calc.isComposite(q) ? html`<${NumInput} value=${Calc.partsOf(q)} min=${1} width="60px" onChange=${v => { q.parti = Math.max(1, Math.round(v || 1)); delete q.coppie; changedTpl(); }} />` : null}</td>
+          <td><${NumInput} value=${q.punti} min=${0} width="80px" onChange=${v => { q.punti = v || 0; changedTpl(); }} /></td>
+          <td><${IconBtn} icon="✕" title="Elimina" onClick=${() => { c.domande.splice(i, 1); changedTpl(); }} /></td>
+        </tr>`)}</tbody>
+        <tfoot><tr><td colspan="3">Totale</td><td class="c strong">${U.fmt(C.all)}</td><td></td></tr></tfoot>
+      </table>
+      <div class="row gap wrap">
+        <button class="btn" onClick=${() => {
+          const last = [...c.domande].reverse().find(q => !Calc.isComposite(q));
+          c.domande.push({ id: U.uid('q'), nome: 'D' + (c.domande.length + 1), tipo: 'singola', punti: last ? last.punti : 1 });
+          changedTpl();
+        }}>+ Aggiungi domanda</button>
+        <button class="btn" onClick=${() => { c.domande.push({ id: U.uid('q'), nome: 'D' + (c.domande.length + 1), tipo: 'composta', parti: 4, punti: 4 }); changedTpl(); }}>+ Aggiungi risposta composta</button>
+      </div>
+      ${!C.uniform ? html`<div class="alert warn">⚠ Le domande a risposta singola hanno punteggi diversi: in correzione andranno segnate una per una invece che con i soli conteggi.</div>` : null}
+    ` : null}`;
+}
+
+/* ---------------- Versioni ---------------- */
+function BVersioni({ t }) {
+  let v = t.versioni.find(x => x.id === S.editVersion) || t.versioni[0] || null;
+  const add = tipo => {
+    const nv = Model.newVersion(tipo);
+    t.versioni.push(nv); S.editVersion = nv.id; changedTpl();
+  };
+  return html`
+    <p class="muted">Le versioni (DSA, NAI, PEI…) partono dalla verifica standard: puoi togliere esercizi, cambiarne il testo, aggiungerne di nuovi.
+      Ogni esercizio mantiene il punteggio che ha nella versione standard: il totale della versione è la somma di quello che contiene
+      (la standard vale ${U.fmt(Calc.total(t, 'std'))}). Il voto si calcola sempre sul totale della versione svolta.</p>
+    <div class="row gap wrap">
+      ${Model.BES_TYPES.map(tp => html`<button class="btn" onClick=${() => add(tp)}>+ ${tp}</button>`)}
+      <button class="btn" onClick=${() => add('ALTRO')}>+ Personalizzata</button>
+    </div>
+    ${t.versioni.length ? html`
+      <${Tabs} items=${t.versioni.map(x => ({ id: x.id, label: x.nome || '(senza nome)', badge: U.fmt(Calc.total(t, x.id)) + ' pt' }))}
+        value=${v.id} onChange=${id => { S.editVersion = id; refresh(); }} />
+      <${VersionEditor} t=${t} v=${v} />` : html`<p class="empty">Nessuna versione oltre a quella standard.</p>`}`;
+}
+
+function VersionEditor({ t, v }) {
+  const stdW = Calc.weights(t, 'std');
+  const W = Calc.weights(t, v.id);
+  const C = Calc.closed(t, v.id);
+  const Tm = Calc.manualTotal(t, v.id);
+  return html`<div class="card">
+    <div class="row gap wrap">
+      <${Field} label="Nome"><${TextInput} value=${v.nome} onInput=${x => { v.nome = x; changedTpl(); }} /><//>
+      <${Field} label="Tipologia (per l'abbinamento con la colonna BES)">
+        <select value=${v.tipo} onChange=${e => { v.tipo = e.target.value; changedTpl(); }}>
+          ${Model.BES_TYPES.map(x => html`<option value=${x}>${x}</option>`)}<option value="ALTRO">Altro</option>
+        </select>
+      <//>
+      <span class="spacer"></span>
+      <button class="btn" onClick=${() => { const c = U.clone(v); c.id = U.uid('ver'); c.nome = v.nome + ' (copia)'; c.aggiunti.forEach(e => { const old = e.id; e.id = U.uid('es'); if (c.adj[old] !== undefined) { c.adj[e.id] = c.adj[old]; delete c.adj[old]; } }); t.versioni.push(c); S.editVersion = c.id; changedTpl(); }}>Duplica</button>
+      <button class="btn danger" onClick=${async () => { if (!(await ask('Eliminare la versione ' + v.nome + '?', 'Elimina', true))) return; t.versioni = t.versioni.filter(x => x !== v); S.editVersion = null; changedTpl(); }}>Elimina</button>
+    </div>
+    <h3>Esercizi della verifica standard</h3>
+    <div class="table-scroll">
+    <table class="tbl compact">
+      <thead><tr><th>Includi</th><th>Esercizio</th><th>Testo personalizzato</th><th>Peso standard</th><th>Correzione</th><th>Peso in ${v.nome}</th></tr></thead>
+      <tbody>${t.esercizi.map(ex => {
+        const incl = !v.esclusi.includes(ex.id);
+        return html`<tr key=${ex.id} class=${incl ? '' : 'dim'}>
+          <td class="c"><input type="checkbox" checked=${incl} onChange=${e => { v.esclusi = e.target.checked ? v.esclusi.filter(x => x !== ex.id) : v.esclusi.concat(ex.id); changedTpl(); }} /></td>
+          <td>${ex.nome}</td>
+          <td><${TextInput} value=${v.testi[ex.id] || ''} onInput=${x => { v.testi[ex.id] = x; changedTpl(); }} /></td>
+          <td class="c muted">${U.fmt(stdW[ex.id])}</td>
+          <td>${incl ? html`<${NumInput} value=${v.adj[ex.id] || 0} width="56px" onChange=${x => { v.adj[ex.id] = x === null ? 0 : Math.round(x); changedTpl(); }} />` : null}</td>
+          <td class="c strong">${incl ? U.fmt(W[ex.id]) : '–'}</td>
+        </tr>`;
+      })}</tbody>
+    </table>
+    </div>
+    <h3>Esercizi aggiuntivi di questa versione</h3>
+    ${v.aggiunti.length ? html`<div class="table-scroll"><table class="tbl compact">
+      <thead><tr><th></th><th>Nome</th><th>Consegna</th>${t.indicatori.map(i => html`<th class="vert" title=${i.nome}><span>${i.nome}</span></th>`)}<th>Correzione</th><th>Peso</th><th></th></tr></thead>
+      <tbody>${v.aggiunti.map((ex, idx) => html`<${ExerciseRow} key=${ex.id} t=${t} ex=${ex} idx=${idx} list=${v.aggiunti} weight=${W[ex.id]} extra=${null} />`)}</tbody>
+    </table></div>` : null}
+    <button class="btn" onClick=${() => { const e = Model.newExercise(t, t.esercizi.concat(v.aggiunti)); e.nome = 'Es ' + (t.esercizi.length + v.aggiunti.length + 1); v.aggiunti.push(e); changedTpl(); }}>+ Aggiungi esercizio</button>
+    <div class="total-line">Totale ${v.nome}: ${U.fmt(Tm + C.max)} punti${C.items.length ? ' (esercizi ' + U.fmt(Tm) + ' + domande chiuse ' + U.fmt(C.max) + ')' : ''}</div>
+    ${t.chiuse.attive && t.chiuse.domande.length ? html`
+      <h3>Domande chiuse</h3>
+      <p class="muted small">Ogni domanda mantiene il suo punteggio: in questa versione il blocco vale ${U.fmt(C.max)} punti su ${U.fmt(C.all)}.</p>
+      <div class="chips">${t.chiuse.domande.map(q => {
+        const incl = !v.chiuseEscluse.includes(q.id);
+        const it = C.items.find(x => x.id === q.id);
+        return html`<label class=${'chip ' + (incl ? 'on' : '')}><input type="checkbox" checked=${incl}
+          onChange=${e => { v.chiuseEscluse = e.target.checked ? v.chiuseEscluse.filter(x => x !== q.id) : v.chiuseEscluse.concat(q.id); changedTpl(); }} />
+          ${q.nome}${incl && it ? html` <span class="muted">${U.fmt(it.valore)}</span>` : null}</label>`;
+      })}</div>` : null}
+    <${Warnings} list=${Calc.warnings(t, v.id)} />
+    <${MatrixView} t=${t} vId=${v.id} />
+  </div>`;
+}
+
+/* ---------------- Griglia ed export ---------------- */
+function versionOptions(t) {
+  return [{ id: 'std', nome: 'Standard' }].concat(t.versioni.map(v => ({ id: v.id, nome: v.nome })));
+}
+
+function BGriglia({ t }) {
+  if (!t.versioni.find(v => v.id === S.previewVersion)) S.previewVersion = 'std';
+  const vId = S.previewVersion;
+  const d = Grid.data(t, vId, null);
+  const exs = Calc.exercises(t, vId);
+  const W = Calc.weights(t, vId);
+  const C = Calc.closed(t, vId);
+  const title = Model.templateTitle(t);
+  const vName = Model.versionName(t, vId);
+  const fname = ext => U.safeName('Griglia - ' + title + (vId === 'std' ? '' : ' - ' + vName)) + '.' + ext;
+  const listText = exs.map(e => e.nome + ': ' + U.fmt(W[e.id]) + ' punti').concat(C.items.length ? ['Domande chiuse: ' + U.fmt(C.max) + ' punti'] : []).join('\n');
+  const all = () => versionOptions(t).map(o => Grid.data(t, o.id, null));
+  return html`
+    <div class="row gap wrap">
+      <${Field} label="Versione" class="inline">
+        <select value=${vId} onChange=${e => { S.previewVersion = e.target.value; refresh(); }}>
+          ${versionOptions(t).map(o => html`<option value=${o.id}>${o.nome}</option>`)}
+        </select>
+      <//>
+      <span class="spacer"></span>
+      <button class="btn primary" onClick=${() => withBusy('Creo il PDF…', async () => deliver(await Grid.pdf([d]), fname('pdf')))}>PDF</button>
+      <button class="btn" onClick=${() => withBusy('Creo l’HTML…', async () => deliver(new Blob([Grid.htmlDocument(title, [Grid.html(d)])], { type: 'text/html' }), fname('html')))}>HTML</button>
+      ${t.versioni.length ? html`<button class="btn" onClick=${() => withBusy('Creo il PDF…', async () => deliver(await Grid.pdf(all()), U.safeName('Griglie - ' + title + ' - tutte le versioni') + '.pdf'))}>PDF di tutte le versioni</button>` : null}
+    </div>
+    <${Warnings} list=${Calc.warnings(t, vId)} />
+    <div class="grid-preview" dangerouslySetInnerHTML=${{ __html: Grid.html(d) }}></div>
+    <div class="card">
+      <div class="row gap"><h3 class="grow">Punteggi da riportare nel compito (${vName})</h3>
+        <button class="btn" onClick=${() => { navigator.clipboard.writeText(listText).then(() => toast('Copiato negli appunti'), () => toast('Copia non riuscita', 'error')); }}>Copia</button></div>
+      <table class="tbl compact" style="max-width:640px">
+        <tbody>${exs.map(e => html`<tr><td>${e.nome}</td><td class="muted">${e.testo}</td><td class="c strong">${U.fmt(W[e.id])} pt</td></tr>`)}
+        ${C.items.length ? html`<tr><td>Domande chiuse</td><td class="muted">${C.items.length} domande</td><td class="c strong">${U.fmt(C.max)} pt</td></tr>` : null}</tbody>
+      </table>
+    </div>`;
+}
+
+// ---- ui-session.js ----
+/* =====================================================================
+ * ui-session.js — valutazione di una classe
+ * ===================================================================== */
+
+function Session() {
+  const s = S.ses;
+  const t = s.template;
+  const done = s.studenti.filter(st => !st.assente && Calc.score(t, st.versione, st).completo).length;
+  const present = s.studenti.filter(st => !st.assente).length;
+  const stateLabel = { idle: '', saved: 'JSON scaricato', pending: 'Modifiche non ancora scaricate in JSON' }[S.saveState] || '';
+  const body = { classe: SClasse, correzione: SCorrezione, riepilogo: SRiepilogo }[S.sesTab];
+  return html`<div class="page">
+    <div class="page-head">
+      <div>
+        <div class="eyebrow">Valutazione${s.classe ? ' · classe ' + s.classe : ''}</div>
+        <h1>${Model.templateTitle(t)}</h1>
+        <div class=${'muted small save-' + S.saveState}>${stateLabel}</div>
+      </div>
+      <div class="actions">
+        <button class="btn primary" onClick=${saveSession}>Salva (scarica JSON)</button>
+      </div>
+    </div>
+    <${Tabs} value=${S.sesTab} onChange=${v => { S.sesTab = v; refresh(); }} items=${[
+      { id: 'classe', label: 'Classe e studenti', badge: s.studenti.length || null },
+      { id: 'correzione', label: 'Correzione', badge: present ? done + '/' + present : null },
+      { id: 'riepilogo', label: 'Riepilogo ed export' }
+    ]} />
+    <div class="panel"><${body} s=${s} /></div>
+  </div>`;
+}
+
+/* ---------------- Classe e studenti ---------------- */
+function SClasse({ s }) {
+  const t = s.template;
+  const vopts = versionOptions(t);
+
+  const importRows = (rows, fileName) => {
+    const list = ClassList.toStudents(rows);
+    if (!list.length) { toast('Nessuno studente trovato nel file (servono le colonne nome, cognome, BES)', 'error'); return; }
+    const key = x => (U.studentName(x)).toLowerCase();
+    const existing = new Set(s.studenti.map(key));
+    let added = 0;
+    list.forEach(x => {
+      if (existing.has(key(x))) return;
+      const st = Model.newStudent(x.cognome, x.nome, Model.versionForBes(t, x.bes));
+      st.bes = x.bes && x.bes.toLowerCase() !== 'no' ? x.bes.toUpperCase() : '';
+      s.studenti.push(st); added++;
+    });
+    const cls = ClassList.classFromName(fileName);
+    if (cls && !s.classe) s.classe = cls;
+    changedSes();
+    toast(added ? 'Aggiunti ' + added + ' studenti' : 'Tutti gli studenti erano già presenti');
+  };
+
+  const fromFile = async () => {
+    const f = await Files.pickFile('.csv,.xlsx,.xls,.ods,.txt');
+    if (!f) return;
+    await withBusy('Leggo il file…', async () => importRows(await ClassList.parseFile(f), f.name));
+  };
+
+  const replaceTemplate = async obj => {
+    if (!obj || obj.tipo !== 'template') { toast('Il file non è una verifica', 'error'); return; }
+    if (obj.id !== t.id && !(await ask('Questa verifica ha un identificativo diverso: i punteggi già inseriti potrebbero non corrispondere. Continuare?', 'Continua'))) return;
+    s.template = Model.normalizeTemplate(obj);
+    s.studenti.forEach(st => { if (st.versione !== 'std' && !s.template.versioni.find(v => v.id === st.versione)) st.versione = Model.versionForBes(s.template, st.bes); });
+    changedSes();
+    toast('Verifica aggiornata');
+  };
+
+  return html`
+    <div class="grid3">
+      <${Field} label="Classe"><${TextInput} value=${s.classe} onInput=${v => { s.classe = v; changedSes(); }} /><//>
+      <${Field} label="Data predefinita" hint="Vale per chi non ha una data propria.">
+        <input type="date" value=${s.data} onInput=${e => { s.data = e.target.value; changedSes(); }} />
+      <//>
+      <div class="field"><span class="field-label">Verifica</span>
+        <div class="row gap wrap">
+          <span class="pill">${vopts.map(o => o.nome).join(' · ')}</span>
+          <button class="btn small" title="Se hai modificato la verifica dopo aver iniziato: i punteggi già inseriti restano"
+            onClick=${async () => replaceTemplate(await importJSONFile())}>Sostituisci da JSON</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card row gap wrap">
+      <b>Carica elenco studenti</b>
+      <button class="btn" onClick=${fromFile}>Scegli file (CSV / Excel)</button>
+      <span class="muted small">Colonne: nome, cognome, BES (vuoto o «no» = standard; DSA, NAI, PEI)</span>
+    </div>
+
+    ${s.studenti.length ? html`<div class="table-scroll"><table class="tbl compact">
+      <thead><tr><th>#</th><th>Cognome</th><th>Nome</th><th>BES</th><th>Versione</th><th>Data</th><th>Assente</th><th></th></tr></thead>
+      <tbody>${[...s.studenti].sort(U.compareStudents).map((st, i) => {
+        const mismatch = st.bes && st.versione === 'std' && Model.versionForBes(t, st.bes) === 'std';
+        return html`<tr key=${st.id} class=${st.assente ? 'dim' : ''}>
+          <td class="muted">${i + 1}</td>
+          <td><${TextInput} value=${st.cognome} onInput=${v => { st.cognome = v; changedSes(); }} /></td>
+          <td><${TextInput} value=${st.nome} onInput=${v => { st.nome = v; changedSes(); }} /></td>
+          <td>${st.bes ? html`<span class="tag">${st.bes}</span>` : null}</td>
+          <td><select value=${st.versione} onChange=${e => { st.versione = e.target.value; changedSes(); }}>
+            ${vopts.map(o => html`<option value=${o.id}>${o.nome}</option>`)}</select>
+            ${mismatch ? html`<span class="warn-text small" title="Nella verifica non c'è una versione con questa tipologia"> nessuna versione ${st.bes}</span>` : null}</td>
+          <td><input type="date" value=${st.data || ''} title="Lascia vuoto per usare la data predefinita" onInput=${e => { st.data = e.target.value; changedSes(); }} /></td>
+          <td class="c"><input type="checkbox" checked=${st.assente} onChange=${e => { st.assente = e.target.checked; changedSes(); }} /></td>
+          <td><${IconBtn} icon="✕" title="Elimina studente" onClick=${async () => {
+            if (Calc.score(t, st.versione, st).iniziato && !(await ask('Lo studente ha già dei punteggi. Eliminarlo?', 'Elimina', true))) return;
+            s.studenti = s.studenti.filter(x => x !== st); changedSes();
+          }} /></td>
+        </tr>`;
+      })}</tbody>
+    </table></div>` : html`<p class="empty">Nessuno studente: carica un elenco o aggiungili a mano.</p>`}
+    <div class="row gap">
+      <button class="btn" onClick=${() => { s.studenti.push(Model.newStudent('', '', 'std')); changedSes(); }}>+ Aggiungi studente</button>
+      <span class="spacer"></span>
+      ${s.studenti.length ? html`<button class="btn primary" onClick=${() => { S.sesTab = 'correzione'; refresh(); }}>Vai alla correzione →</button>` : null}
+    </div>`;
+}
+
+/* ---------------- Correzione ---------------- */
+function studentStatus(t, st) {
+  if (st.assente) return { cls: 'absent', label: 'assente' };
+  const r = Calc.score(t, st.versione, st);
+  if (r.completo) return { cls: 'done', label: U.fmt(r.votoArr, 1), res: r };
+  if (r.iniziato) return { cls: 'partial', label: 'in corso', res: r };
+  return { cls: 'todo', label: 'da fare', res: r };
+}
+
+function SCorrezione({ s }) {
+  const t = s.template;
+  const sorted = [...s.studenti].sort(U.compareStudents);
+  if (!sorted.length) return html`<p class="empty">Aggiungi prima gli studenti nella scheda «Classe e studenti».</p>`;
+  let cur = s.studenti.find(x => x.id === S.cur);
+  if (!cur) { cur = sorted.find(x => !x.assente) || sorted[0]; S.cur = cur.id; }
+  const dates = [...new Set(sorted.map(st => st.data || s.data))];
+  return html`<div class="eval-layout">
+    <aside class="student-list">
+      ${sorted.map(st => {
+        const stt = studentStatus(t, st);
+        return html`<button key=${st.id} class=${'student ' + (st.id === cur.id ? 'active ' : '') + stt.cls} onClick=${() => { S.cur = st.id; refresh(); }}>
+          <span class="name">${U.studentName(st) || '(senza nome)'}</span>
+          <span class="meta">${dates.length > 1 ? U.dateIT(st.data || s.data) + ' · ' : ''}${st.versione !== 'std' ? Model.versionName(t, st.versione) + ' · ' : ''}${stt.label}</span>
+        </button>`;
+      })}
+    </aside>
+    <${StudentEval} key=${cur.id} s=${s} st=${cur} sorted=${sorted} />
+  </div>`;
+}
+
+function focusNext(e, dir) {
+  const box = e.target.closest('.eval-main');
+  const inputs = [...box.querySelectorAll('input[data-nav]')].sort((a, b) => a.dataset.nav - b.dataset.nav);
+  const i = inputs.indexOf(e.target);
+  const nx = inputs[i + dir];
+  if (nx) { nx.focus(); }
+}
+
+/**
+ * Domande chiuse in correzione.
+ * - Risposta singola, tutte dello stesso valore: solo i numeri di corrette, errate e non date
+ *   (le non date si completano da sole finché non le modifichi).
+ * - Risposta singola con valori diversi: si segna ogni domanda.
+ * - Risposta composta (associazioni, cloze…): per ogni domanda il numero di parti corrette.
+ */
+function ClosedBlock({ t, st, C, res, onKey }) {
+  const n = C.singole.length;
+  if (!st.chiuseConteggi) st.chiuseConteggi = {};
+  if (!st.chiuseParziali) st.chiuseParziali = Object.assign({}, st.chiuseAssoc || {}); // nome usato nelle prime versioni
+  delete st.chiuseAssoc;
+  const P = st.chiuseParziali;
+  const k = st.chiuseConteggi;
+  const has = k.C != null || k.E != null || k.N != null;
+  if (C.uniform && !has && st.chiuse && Object.keys(st.chiuse).length) Object.assign(k, Calc.closedCounts(st, C)); // valutazioni salvate prima
+  const set = (field, v) => {
+    k[field] = v === null ? null : Math.max(0, Math.round(v));
+    if (field === 'N') k.Nauto = v === null;
+    else if (k.Nauto !== false) k.N = (k.C == null && k.E == null) ? null : Math.max(0, n - (k.C || 0) - (k.E || 0));
+    changedSes();
+  };
+  const sum = (k.C || 0) + (k.E || 0) + (k.N || 0);
+  const fields = n ? [['C', 'Corrette', U.fmt(C.singole[0].valore) + ' pt'], ['E', 'Errate', U.fmt(U.num(t.chiuse.errata) || 0) + ' pt'], ['N', 'Non date', U.fmt(U.num(t.chiuse.nonData) || 0) + ' pt']] : [];
+  const allCorrect = () => {
+    if (C.uniform) st.chiuseConteggi = { C: n, E: 0, N: 0 };
+    else C.singole.forEach(q => { st.chiuse[q.id] = 'C'; });
+    C.composte.forEach(q => { P[q.id] = q.parti; });
+    changedSes();
+  };
+  return html`<div class="card">
+    <div class="row gap wrap"><h3 class="grow">Domande a risposta chiusa</h3>
+      <button class="btn small" onClick=${allCorrect}>Tutte corrette</button>
+      <button class="btn small" onClick=${() => { st.chiuseConteggi = {}; st.chiuse = {}; st.chiuseParziali = {}; changedSes(); }}>Azzera</button></div>
+
+    ${n && C.uniform ? html`
+      <div class="muted small">Risposta singola: ${n} domande</div>
+      <div class="row gap wrap closed-counts">
+        ${fields.map(([f, label, hint], i) => html`<label class="field inline">
+          <span class="field-label">${label}</span>
+          <${NumInput} value=${k[f]} min=${0} max=${n} width="64px" nav=${100000 + i} onKeyDown=${onKey} onChange=${v => set(f, v)} />
+          <span class="muted small">× ${hint}</span>
+        </label>`)}
+      </div>
+      ${sum > n ? html`<div class="small bad">La somma (${sum}) supera il numero di domande (${n}).</div>`
+        : sum < n && has ? html`<div class="small muted">Mancano ${n - sum} domande.</div>` : null}` : null}
+
+    ${n && !C.uniform ? html`
+      <div class="muted small">Risposta singola: le domande hanno punteggi diversi, segna ciascuna.</div>
+      <div class="closed-grid">${C.singole.map(q => html`<div class="closed-q">
+        <span class="qn">${q.nome}</span>
+        ${[['C', '✓', 'corretta'], ['E', '✗', 'errata'], ['N', '–', 'non data']].map(([kk, ic, lab]) => html`
+          <button class=${'qbtn q' + kk + (st.chiuse[q.id] === kk ? ' on' : '')} title=${lab}
+            onClick=${() => { if (st.chiuse[q.id] === kk) delete st.chiuse[q.id]; else st.chiuse[q.id] = kk; changedSes(); }}>${ic}</button>`)}
+      </div>`)}</div>` : null}
+
+    ${C.composte.length ? html`
+      <div class="muted small">Risposte composte: inserisci quante parti sono corrette</div>
+      <div class="row gap wrap closed-counts">
+        ${C.composte.map((q, i) => {
+          const x = Calc.partialValue(st, q);
+          return html`<label class="field inline">
+            <span class="field-label">${q.nome}</span>
+            <${NumInput} value=${P[q.id]} min=${0} max=${q.parti} width="56px" nav=${100010 + i} onKeyDown=${onKey}
+              onChange=${v => { if (v === null) delete P[q.id]; else P[q.id] = Math.round(v); changedSes(); }} />
+            <span class="muted small">/ ${q.parti} · ${x === null ? U.fmt(q.valore) + ' pt' : U.fmt(q.valore * x / q.parti) + ' / ' + U.fmt(q.valore) + ' pt'}</span>
+          </label>`;
+        })}
+      </div>` : null}
+
+    <div class="small muted">Punti domande chiuse: ${U.fmt(res.chiuse)} / ${U.fmt(C.max)}</div>
+  </div>`;
+}
+
+/**
+ * Frecce nella griglia di correzione: su/giù cambiano indicatore, sinistra/destra esercizio.
+ * Le caselle non previste (indicatore non coinvolto, esercizio N.S.) vengono saltate.
+ * Sinistra/destra spostano solo se il cursore è già all'inizio/alla fine del numero
+ * (o se il numero è tutto selezionato, come appena entri nella casella).
+ */
+function moveWithArrows(e, rows, cols) {
+  const dir = { ArrowUp: [-1, 0], ArrowDown: [1, 0], ArrowLeft: [0, -1], ArrowRight: [0, 1] }[e.key];
+  const el = e.target;
+  if (!dir || el.dataset.r === undefined || e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
+  if (dir[1]) {
+    const len = el.value.length, a = el.selectionStart, b = el.selectionEnd;
+    const all = a === 0 && b === len;
+    if (dir[1] < 0 && !(all || b === 0)) return;
+    if (dir[1] > 0 && !(all || a === len)) return;
+  }
+  e.preventDefault();
+  const box = el.closest('.eval-main');
+  let r = +el.dataset.r, c = +el.dataset.c;
+  while (true) {
+    r += dir[0]; c += dir[1];
+    if (r < 0 || c < 0 || r >= rows || c >= cols) return;
+    const next = box.querySelector('input[data-r="' + r + '"][data-c="' + c + '"]');
+    if (next) { next.focus(); return; }
+  }
+}
+
+/** Classe colore di un livello (0 = il più alto); l'ultimo è sempre il rosso. */
+function levelClass(count, rank) {
+  return rank === count - 1 ? 'lvlow' : 'lv' + Math.min(rank, 3);
+}
+
+function StudentEval({ s, st, sorted }) {
+  const t = s.template;
+  const res = Calc.score(t, st.versione, st);
+  const M = res.matrix;
+  const C = res.closed;
+  const others = sorted.filter(x => !x.assente || x.id === st.id);
+  const pos = others.indexOf(st);
+  const go = d => { const n = others[pos + d]; if (n) { S.cur = n.id; refresh(); } };
+  const setScore = (exId, indId, v) => {
+    st.punteggi[exId] = st.punteggi[exId] || {};
+    if (v === null) delete st.punteggi[exId][indId]; else st.punteggi[exId][indId] = v;
+    changedSes();
+  };
+  const fileBase = U.safeName((s.classe ? s.classe + ' - ' : '') + U.studentName(st) + ' - ' + (t.argomento || t.materia || 'verifica'));
+  const nInd = M.used.length;
+  const onKey = e => {
+    if (e.key === 'Enter') { e.preventDefault(); focusNext(e, e.shiftKey ? -1 : 1); return; }
+    moveWithArrows(e, nInd, M.rows.length);
+  };
+  const [focus, setFocus] = useState(null);
+  const [hover, setHover] = useState(null);
+
+  // descrittore da mostrare: livello sotto il mouse, altrimenti quello del punteggio della casella attiva
+  let hint = null;
+  const hintFor = (ind, level) => {
+    const ranges = Calc.levelRanges(ind.livelli, U.num(ind.max) || 0);
+    const k = ranges.findIndex(r => r.level === level);
+    return k < 0 ? null : { ind, range: ranges[k], cls: levelClass(ranges.length, k) };
+  };
+  if (hover) {
+    const ind = t.indicatori.find(i => i.id === hover.indId);
+    const level = ind && ind.livelli.find(l => l.id === hover.levelId);
+    if (level) hint = hintFor(ind, level);
+  } else if (focus) {
+    const ind = t.indicatori.find(i => i.id === focus.indId);
+    const v = ind && st.punteggi[focus.exId] ? U.num(st.punteggi[focus.exId][ind.id]) : null;
+    if (v !== null) hint = hintFor(ind, Calc.levelOf(ind.livelli, U.num(ind.max) || 0, v));
+  }
+
+  return html`<section class="eval-main">
+    <div class="row gap wrap eval-head">
+      <button class="btn small" disabled=${pos <= 0} onClick=${() => go(-1)}>←</button>
+      <h2 class="grow">${U.studentName(st) || '(senza nome)'}</h2>
+      <label class="field inline"><span class="field-label">Versione</span>
+        <select value=${st.versione} onChange=${e => { st.versione = e.target.value; changedSes(); }}>
+          ${versionOptions(t).map(o => html`<option value=${o.id}>${o.nome}</option>`)}</select></label>
+      <label class="field inline"><span class="field-label">Data</span>
+        <input type="date" value=${st.data || s.data} onInput=${e => { st.data = e.target.value === s.data ? '' : e.target.value; changedSes(); }} /></label>
+      <label class="check"><input type="checkbox" checked=${st.assente} onChange=${e => { st.assente = e.target.checked; changedSes(); }} /> Assente</label>
+      <button class="btn small" disabled=${pos >= others.length - 1} onClick=${() => go(1)}>→</button>
+    </div>
+
+    ${st.assente ? html`<p class="empty">Studente assente. Togli la spunta quando recupera la verifica (puoi indicare una data diversa).</p>` : html`
+    <p class="muted small">Inserisci il punteggio sulla scala di ogni indicatore. Con le frecce ti sposti tra le caselle; Invio passa alla successiva esercizio per esercizio, Maiusc+Invio torna indietro.</p>
+    <div class="table-scroll">
+    <table class="tbl eval">
+      <thead>
+        <tr><th>Indicatore</th>${M.rows.map(r => html`<th class="ex-head"><div>${r.ex.nome}</div><div class="muted small">${U.fmt(r.peso)} pt</div></th>`)}<th>Indicatore</th></tr>
+        <tr class="sub"><th></th>${M.rows.map(r => html`<th><label class="check tiny" title="Esercizio non svolto: tutti gli indicatori a 0">
+          <input type="checkbox" checked=${!!st.nonSvolti[r.ex.id]} onChange=${e => { if (e.target.checked) st.nonSvolti[r.ex.id] = true; else delete st.nonSvolti[r.ex.id]; changedSes(); }} />N.S.</label></th>`)}<th></th></tr>
+      </thead>
+      <tbody>${M.used.map((ind, ri) => {
+        const max = U.num(ind.max) || 0;
+        const ir = res.indicatori[ind.id];
+        const ranges = Calc.levelRanges(ind.livelli, max);
+        // fascia della casella su cui stai scrivendo, evidenziata nella legenda della riga
+        const focusVal = focus && focus.indId === ind.id && st.punteggi[focus.exId] ? U.num(st.punteggi[focus.exId][ind.id]) : null;
+        const focusLv = focusVal === null ? null : Calc.levelOf(ind.livelli, max, focusVal);
+        return html`<tr key=${ind.id} class=${focus && focus.indId === ind.id ? 'row-focus' : ''}>
+          <th class="ind-name">
+            <div>${ind.nome} <span class="muted small">(0 – ${max})</span></div>
+            <ul class="bands">${ranges.map((r, k) => html`<li key=${r.level.id}
+              onMouseEnter=${() => setHover({ indId: ind.id, levelId: r.level.id })} onMouseLeave=${() => setHover(null)}
+              class=${'band ' + levelClass(ranges.length, k) + (focusLv === r.level ? ' active' : '') + (hover && hover.levelId === r.level.id && hover.indId === ind.id ? ' hover' : '')}>
+              <span class="b-range">${Calc.rangeLabel(r)}</span><span class="b-name">${r.level.nome}</span>
+            </li>`)}</ul>
+          </th>
+          ${M.rows.map((r, ci) => {
+            if (r.cells[ind.id] === undefined) return html`<td class="off">–</td>`;
+            if (st.nonSvolti[r.ex.id]) return html`<td class="ns">N.S.</td>`;
+            const v = st.punteggi[r.ex.id] ? st.punteggi[r.ex.id][ind.id] : null;
+            const lv = Calc.levelOf(ind.livelli, max, U.num(v));
+            const rank = lv ? ranges.findIndex(x => x.level === lv) : -1;
+            return html`<td class=${'cell ' + (rank >= 0 ? levelClass(ranges.length, rank) : '')}>
+              <${NumInput} value=${v} min=${0} max=${max} nav=${ci * nInd + ri} row=${ri} col=${ci} onKeyDown=${onKey} onChange=${x => setScore(r.ex.id, ind.id, x)}
+                onFocus=${() => setFocus({ exId: r.ex.id, indId: ind.id })} onBlur=${() => setFocus(null)} />
+              <div class="lvname">${lv ? lv.nome : ''}</div>
+            </td>`;
+          })}
+          <td class="c ind-res"><b>${U.fmt(ir.punti)}</b> / ${U.fmt(ir.max)}<div class="muted small">media ${U.fmt(ir.media)} / ${max}</div></td>
+        </tr>`;
+      })}</tbody>
+      <tfoot><tr><th>Punti esercizio</th>${M.rows.map(r => {
+        const x = res.esercizi[r.ex.id];
+        return html`<td class=${'c ' + (x.completo ? '' : 'muted')}><b>${U.fmt(x.punti)}</b> / ${U.fmt(x.max)}</td>`;
+      })}<td class="c"><b>${U.fmt(res.manuale)}</b> / ${U.fmt(M.Tm)}</td></tr></tfoot>
+    </table>
+    </div>
+
+    <div class=${'desc-bar ' + (hint ? hint.cls : 'empty')} aria-live="polite">
+      ${hint ? html`
+        <div class="desc-head">
+          <span class="desc-ind">${hint.ind.nome}</span>
+          <span class=${'desc-level ' + hint.cls}>${hint.range.level.nome || 'livello'}</span>
+          <span class="muted">${Calc.rangeLabel(hint.range)}</span>
+        </div>
+        <div class="desc-text">${hint.range.level.descrittore || html`<span class="muted">Nessun descrittore per questo livello.</span>`}</div>`
+      : html`<span class="muted">Passa sopra un livello o scrivi un punteggio per leggere il descrittore.</span>`}
+    </div>
+
+    ${C.items.length ? html`<${ClosedBlock} t=${t} st=${st} C=${C} res=${res} onKey=${onKey} />` : null}
+
+    <div class="result-bar">
+      <div><span class="muted">Esercizi</span><b>${U.fmt(res.manuale)}</b><span class="muted">/ ${U.fmt(M.Tm)}</span></div>
+      ${C.items.length ? html`<div><span class="muted">Chiuse</span><b>${U.fmt(res.chiuse)}</b><span class="muted">/ ${U.fmt(C.max)}</span></div>` : null}
+      <div><span class="muted">Totale</span><b>${U.fmt(res.totale)}</b><span class="muted">/ ${U.fmt(res.max)}</span></div>
+      <div><span class="muted">Voto</span><b>${U.fmtFixed(res.voto, 2)}</b></div>
+      <div class="big"><span class="muted">Arrotondato</span><b>${U.fmt(res.votoArr, 1)}</b></div>
+      ${res.completo ? null : html`<div class="warn-text small">griglia incompleta</div>`}
+    </div>
+
+    <${Field} label="Note (solo per te, non esportate)"><${TextArea} rows="2" value=${st.note} onInput=${v => { st.note = v; changedSes(); }} /><//>
+
+    <div class="row gap wrap">
+      <button class="btn" onClick=${() => withBusy('Creo il PDF…', async () => deliver(await Grid.pdf([Grid.data(t, st.versione, st, s)]), fileBase + '.pdf'))}>PDF studente</button>
+      <button class="btn" onClick=${() => withBusy('Creo l’Excel…', async () => deliver(await Grid.xlsxBlob(wb => Grid.xlsxSheet(wb, Grid.sheetName(U.studentName(st), new Set()), Grid.data(t, st.versione, st, s))), fileBase + '.xlsx'))}>XLSX studente</button>
+    </div>
+    `}
+  </section>`;
+}
+
+/* ---------------- Riepilogo ---------------- */
+function SRiepilogo({ s }) {
+  const t = s.template;
+  const cols = Summary.columns(s);
+  const rows = Summary.rows(s);
+  const valid = rows.filter(r => !r.assente && r.res.iniziato);
+  const avg = valid.length ? U.sum(valid, r => r.res.voto) / valid.length : null;
+  const suff = valid.filter(r => r.res.votoArr >= 6).length;
+  const hasClosed = t.chiuse.attive && t.chiuse.domande.length;
+  const title = Model.templateTitle(t);
+  const base = U.safeName((s.classe ? s.classe + ' - ' : '') + title);
+  const present = rows.filter(r => !r.assente);
+  const incomplete = present.filter(r => !r.res.completo).length;
+
+  // un file per studente; una breve pausa tra un download e l'altro evita che il browser ne blocchi qualcuno
+  const eachPdf = () => withBusy('Creo i PDF…', async () => {
+    for (const r of present) {
+      const blob = await Grid.pdf([Grid.data(t, r.st.versione, r.st, s)]);
+      Files.download(blob, U.safeName((s.classe ? s.classe + ' - ' : '') + U.studentName(r.st) + ' - ' + (t.argomento || t.materia || 'verifica')) + '.pdf');
+      await new Promise(res => setTimeout(res, 400));
+    }
+    toast(present.length + ' PDF scaricati');
+  });
+
+  return html`
+    <div class="stats">
+      <div><span class="muted">Valutati</span><b>${valid.length}</b></div>
+      <div><span class="muted">Media voti</span><b>${avg === null ? '–' : U.fmtFixed(avg, 2)}</b></div>
+      <div><span class="muted">Sufficienti</span><b>${suff}</b><span class="muted">/ ${valid.length}</span></div>
+      <div><span class="muted">Assenti</span><b>${rows.length - present.length}</b></div>
+    </div>
+    ${incomplete ? html`<div class="alert warn">⚠ ${incomplete} griglie non sono complete.</div>` : null}
+    <div class="row gap wrap">
+      <button class="btn primary" onClick=${() => withBusy('Creo l’Excel…', async () => deliver(await Summary.xlsx(s, true), base + ' - griglie.xlsx'))}>XLSX riepilogo + griglie</button>
+      <button class="btn" onClick=${() => withBusy('Creo l’Excel…', async () => deliver(await Summary.xlsx(s, false), base + ' - riepilogo.xlsx'))}>XLSX solo riepilogo</button>
+      <button class="btn" onClick=${() => withBusy('Creo il PDF…', async () => deliver(await Summary.pdf(s), base + ' - riepilogo.pdf'))}>PDF riepilogo</button>
+      <button class="btn" onClick=${() => withBusy('Creo il PDF…', async () => deliver(await Grid.pdf(present.map(r => Grid.data(t, r.st.versione, r.st, s))), base + ' - griglie.pdf'))}>PDF di tutte le griglie</button>
+      <button class="btn" onClick=${eachPdf}>Un PDF per studente</button>
+    </div>
+    <div class="table-scroll">
+    <table class="tbl compact summary">
+      <thead><tr><th>Studente</th><th>Data</th><th>Versione</th>${cols.map(c => html`<th>${c.nome}</th>`)}${hasClosed ? html`<th>Chiuse</th>` : null}<th>Punteggio</th><th>Voto</th><th>Arr.</th></tr></thead>
+      <tbody>${rows.map(({ st, res, assente }) => html`<tr key=${st.id} class=${assente ? 'dim' : ''} onClick=${() => { S.cur = st.id; S.sesTab = 'correzione'; refresh(); }} style="cursor:pointer">
+        <td>${U.studentName(st)}</td><td>${U.dateIT(st.data || s.data)}</td><td>${Model.versionName(t, st.versione)}</td>
+        ${assente ? html`<td colspan=${cols.length + (hasClosed ? 1 : 0) + 3} class="c muted">assente</td>` : html`
+          ${cols.map(c => { const x = res.esercizi[c.id]; return html`<td class="c">${!x ? '–' : x.nonSvolto ? 'N.S.' : U.fmt(x.punti)}</td>`; })}
+          ${hasClosed ? html`<td class="c">${U.fmt(res.chiuse)}</td>` : null}
+          <td class="c">${U.fmt(res.totale)} / ${U.fmt(res.max)}</td>
+          <td class="c">${U.fmtFixed(res.voto, 2)}</td>
+          <td class=${'c strong ' + (res.votoArr >= 6 ? 'good' : 'bad')}>${U.fmt(res.votoArr, 1)}${res.completo ? '' : ' *'}</td>`}
+      </tr>`)}</tbody>
+    </table>
+    </div>
+    <p class="muted small">* griglia incompleta. Clic su una riga per aprire la correzione.</p>`;
+}
+
+// ---- app.js ----
+/* =====================================================================
+ * app.js — home e avvio
+ * ===================================================================== */
+
+const APP_VERSION = '2026-10-24c';
+
+function fmtWhen(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  return d.toLocaleDateString('it-IT') + ' ' + d.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
+}
+
+function Home() {
+  const draft = Draft.read();
+  /** Apre un JSON: una verifica (per modificarla o per valutare) oppure una valutazione già iniziata. */
+  const openJSON = async want => {
+    const obj = await importJSONFile();
+    if (!obj) return;
+    if (obj.tipo === 'sessione') openSessionObj(obj, true);
+    else if (obj.tipo !== 'template') toast('Il file non è una verifica né una valutazione di questa app', 'error');
+    else if (want === 'eval') startSession(obj);
+    else openTemplateObj(obj, true);
+  };
+  return html`<div class="page">
+    ${draft ? html`<div class="alert info row gap wrap">
+      <span class="grow">C'è del lavoro non scaricato del ${fmtWhen(draft.savedAt)}${draft.tpl ? ' (verifica «' + Model.templateTitle(draft.tpl) + '»)' : ''}${draft.ses ? ' (valutazione' + (draft.ses.classe ? ' ' + draft.ses.classe : '') + ')' : ''}.</span>
+      ${draft.tpl ? html`<button class="btn small" onClick=${() => openTemplateObj(draft.tpl, false)}>Riprendi verifica</button>` : null}
+      ${draft.ses ? html`<button class="btn small" onClick=${() => openSessionObj(draft.ses, false)}>Riprendi valutazione</button>` : null}
+      <button class="btn small" onClick=${() => { Draft.clear(); refresh(); }}>Scarta</button>
+    </div>` : null}
+    <div class="home-grid">
+      <section class="card mode">
+        <div class="mode-icon">✎</div>
+        <h2>Creazione verifica</h2>
+        <p class="muted">Indicatori, livelli, esercizi, domande chiuse e versioni DSA / NAI / PEI. Esporta la griglia in PDF o HTML.</p>
+        <div class="row gap wrap">
+          <button class="btn primary" onClick=${() => openTemplateObj(Model.newTemplate(), false)}>Nuova verifica</button>
+          <button class="btn" onClick=${() => openJSON('edit')}>Apri verifica (JSON)</button>
+        </div>
+      </section>
+      <section class="card mode">
+        <div class="mode-icon">✓</div>
+        <h2>Valutazione</h2>
+        <p class="muted">Applica una verifica a una classe, inserisci i punteggi e ottieni voto, griglie per studente e riepilogo.</p>
+        <div class="row gap wrap">
+          <button class="btn primary" title="Scegli il JSON della verifica da applicare alla classe" onClick=${() => openJSON('eval')}>Nuova valutazione da verifica (JSON)</button>
+          <button class="btn" title="Scegli il JSON di una valutazione salvata" onClick=${() => openJSON('eval')}>Apri valutazione (JSON)</button>
+        </div>
+      </section>
+    </div>
+    <p class="muted small center">Verifiche e valutazioni si salvano come file JSON sul tuo computer: con «Salva» scarichi il file, con «Apri» lo riprendi.
+      Se usi Google Drive per desktop, salvali in una cartella di Drive per averli anche sugli altri dispositivi.</p>
+  </div>`;
+}
+
+/**
+ * Se una schermata va in errore mentre viene disegnata, mostra il messaggio invece di
+ * lasciare l'app bloccata, così si può tornare alla home e segnalare il problema.
+ */
+function Safe({ children }) {
+  const [err, reset] = htmPreact.useErrorBoundary(e => {
+    console.error(e);
+    S.busy = null;
+  });
+  if (!err) return children;
+  return html`<div class="page"><div class="alert warn">
+    <h2>Si è verificato un errore in questa schermata</h2>
+    <p>Il lavoro non salvato resta nella bozza del browser. Copia il messaggio qui sotto se vuoi segnalarlo.</p>
+    <pre class="err-box">${String(err && err.message || err)}${'\n\nSchermata: ' + S.view + (S.view === 'builder' ? ' / ' + S.builderTab : S.view === 'session' ? ' / ' + S.sesTab : '') + ' · versione app ' + APP_VERSION}${err && err.stack ? '\n\n' + String(err.stack).split('\n').slice(0, 6).join('\n') : ''}</pre>
+    <div class="row gap">
+      <button class="btn primary" onClick=${() => { S.view = 'home'; S.busy = null; reset(); refresh(); }}>Torna alla home</button>
+      <button class="btn" onClick=${() => { S.busy = null; reset(); refresh(); }}>Riprova</button>
+    </div>
+  </div></div>`;
+}
+
+function App() {
+  const [, set] = useState(0);
+  _bump = () => set(x => x + 1);
+  const crumbs = { home: null, builder: 'Creazione verifica', session: 'Valutazione' }[S.view];
+  return html`
+    <header class="topbar">
+      <button class="brand" onClick=${() => leaveTo('home')}><span class="logo">▦</span> Griglie di valutazione</button>
+      ${crumbs ? html`<span class="crumb">› ${crumbs}</span>` : null}
+    </header>
+    <main>
+      <${Safe} key=${S.view}>${S.view === 'home' ? html`<${Home} />` : S.view === 'builder' ? html`<${Builder} />` : html`<${Session} />`}<//>
+    </main>
+    ${S.busy ? html`<div class="busy"><div class="spinner"></div>${S.busy}</div>` : null}
+    <${Dialog} />
+    ${S.toast ? html`<div class=${'toast ' + S.toast.kind} onClick=${() => { S.toast = null; refresh(); }}>${S.toast.msg}</div>` : null}`;
+}
+
+window.addEventListener('beforeunload', e => {
+  if ((S.view === 'builder' && S.tplDirty) || (S.ses && S.sesRev !== S.savedRev)) { e.preventDefault(); e.returnValue = ''; }
+});
+
+(function boot() {
+  const style = document.createElement('style');
+  style.textContent = Grid.css;
+  document.head.appendChild(style);
+  render(html`<${App} />`, document.getElementById('app'));
+})();
+
+// per il debug dalla console del browser
+window.GV = { S: S, U: U, Model: Model, Calc: Calc, Grid: Grid, Summary: Summary };
+})();
+</script>
+</body>
+</html>
