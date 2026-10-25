@@ -59,7 +59,18 @@ Anche online non c'è nessun server: verifiche, valutazioni e dati degli student
 3. Nel repository vai su **Settings → Pages**. In *Source* scegli **Deploy from a branch**, poi il ramo **main** e la cartella **/docs**, e salva.
 4. Dopo un minuto circa l'indirizzo compare nella stessa pagina.
 
-Per aggiornare il sito dopo una modifica: esegui `tools/build.ps1`, poi carica di nuovo `docs/index.html` (e i sorgenti cambiati).
+Il sito è pubblicato qui: <https://rawjute.github.io/griglie-valutazione/> (repository <https://github.com/rawjute/griglie-valutazione>).
+
+Per aggiornarlo dopo una modifica ai sorgenti, dalla cartella del progetto:
+
+```
+powershell -ExecutionPolicy Bypass -File tools/build.ps1
+git add -A
+git commit -m "Descrizione della modifica"
+git push
+```
+
+GitHub Pages ripubblica da solo in circa un minuto.
 
 ## Modificare l'app
 
