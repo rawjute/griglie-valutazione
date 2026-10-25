@@ -190,7 +190,7 @@ function ClosedBlock({ t, st, C, res, onKey }) {
       <button class="btn small" onClick=${() => { st.chiuseConteggi = {}; st.chiuse = {}; st.chiuseParziali = {}; changedSes(); }}>Azzera</button></div>
 
     ${n && C.uniform ? html`
-      <div class="muted small">Risposta singola: ${n} domande</div>
+      <div class="muted small">Risposta singola (DS): ${n} domande</div>
       <div class="row gap wrap closed-counts">
         ${fields.map(([f, label, hint], i) => html`<label class="field inline">
           <span class="field-label">${label}</span>
@@ -202,7 +202,7 @@ function ClosedBlock({ t, st, C, res, onKey }) {
         : sum < n && has ? html`<div class="small muted">Mancano ${n - sum} domande.</div>` : null}` : null}
 
     ${n && !C.uniform ? html`
-      <div class="muted small">Risposta singola: le domande hanno punteggi diversi, segna ciascuna.</div>
+      <div class="muted small">Risposta singola (DS): le domande hanno punteggi diversi, segna ciascuna.</div>
       <div class="closed-grid">${C.singole.map(q => html`<div class="closed-q">
         <span class="qn">${q.nome}</span>
         ${[['C', '✓', 'corretta'], ['E', '✗', 'errata'], ['N', '–', 'non data']].map(([kk, ic, lab]) => html`
@@ -211,7 +211,7 @@ function ClosedBlock({ t, st, C, res, onKey }) {
       </div>`)}</div>` : null}
 
     ${C.composte.length ? html`
-      <div class="muted small">Risposte composte: inserisci quante parti sono corrette</div>
+      <div class="muted small">Risposta multipla (DM): inserisci quante parti sono corrette</div>
       <div class="row gap wrap closed-counts">
         ${C.composte.map((q, i) => {
           const x = Calc.partialValue(st, q);
@@ -313,12 +313,12 @@ function StudentEval({ s, st, sorted }) {
     </div>
 
     ${st.assente ? html`<p class="empty">Studente assente. Togli la spunta quando recupera la verifica (puoi indicare una data diversa).</p>` : html`
-    <p class="muted small">Inserisci il punteggio sulla scala di ogni indicatore. Con le frecce ti sposti tra le caselle; Invio passa alla successiva esercizio per esercizio, Maiusc+Invio torna indietro.</p>
+    <p class="muted small">Inserisci il punteggio sulla scala di ogni indicatore. Con le frecce ti sposti tra le caselle; Invio passa alla successiva domanda per domanda, Maiusc+Invio torna indietro.</p>
     <div class="table-scroll">
     <table class="tbl eval">
       <thead>
         <tr><th>Indicatore</th>${M.rows.map(r => html`<th class="ex-head"><div>${r.ex.nome}</div><div class="muted small">${U.fmt(r.peso)} pt</div></th>`)}<th>Indicatore</th></tr>
-        <tr class="sub"><th></th>${M.rows.map(r => html`<th><label class="check tiny" title="Esercizio non svolto: tutti gli indicatori a 0">
+        <tr class="sub"><th></th>${M.rows.map(r => html`<th><label class="check tiny" title="Domanda non svolta: tutti gli indicatori a 0">
           <input type="checkbox" checked=${!!st.nonSvolti[r.ex.id]} onChange=${e => { if (e.target.checked) st.nonSvolti[r.ex.id] = true; else delete st.nonSvolti[r.ex.id]; changedSes(); }} />N.S.</label></th>`)}<th></th></tr>
       </thead>
       <tbody>${M.used.map((ind, ri) => {
@@ -352,7 +352,7 @@ function StudentEval({ s, st, sorted }) {
           <td class="c ind-res"><b>${U.fmt(ir.punti)}</b> / ${U.fmt(ir.max)}<div class="muted small">media ${U.fmt(ir.media)} / ${max}</div></td>
         </tr>`;
       })}</tbody>
-      <tfoot><tr><th>Punti esercizio</th>${M.rows.map(r => {
+      <tfoot><tr><th>Punti domanda</th>${M.rows.map(r => {
         const x = res.esercizi[r.ex.id];
         return html`<td class=${'c ' + (x.completo ? '' : 'muted')}><b>${U.fmt(x.punti)}</b> / ${U.fmt(x.max)}</td>`;
       })}<td class="c"><b>${U.fmt(res.manuale)}</b> / ${U.fmt(M.Tm)}</td></tr></tfoot>
@@ -373,7 +373,7 @@ function StudentEval({ s, st, sorted }) {
     ${C.items.length ? html`<${ClosedBlock} t=${t} st=${st} C=${C} res=${res} onKey=${onKey} />` : null}
 
     <div class="result-bar">
-      <div><span class="muted">Esercizi</span><b>${U.fmt(res.manuale)}</b><span class="muted">/ ${U.fmt(M.Tm)}</span></div>
+      <div><span class="muted">Domande</span><b>${U.fmt(res.manuale)}</b><span class="muted">/ ${U.fmt(M.Tm)}</span></div>
       ${C.items.length ? html`<div><span class="muted">Chiuse</span><b>${U.fmt(res.chiuse)}</b><span class="muted">/ ${U.fmt(C.max)}</span></div>` : null}
       <div><span class="muted">Totale</span><b>${U.fmt(res.totale)}</b><span class="muted">/ ${U.fmt(res.max)}</span></div>
       <div><span class="muted">Voto</span><b>${U.fmtFixed(res.voto, 2)}</b></div>
@@ -405,14 +405,18 @@ function SRiepilogo({ s }) {
   const present = rows.filter(r => !r.assente);
   const incomplete = present.filter(r => !r.res.completo).length;
 
-  // un file per studente; una breve pausa tra un download e l'altro evita che il browser ne blocchi qualcuno
-  const eachPdf = () => withBusy('Creo i PDF…', async () => {
+  // un PDF per studente, tutti dentro un unico file ZIP (un solo download)
+  const zipPdf = () => withBusy('Creo i PDF…', async () => {
+    const JSZip = await Libs.zip();
+    const zip = new JSZip();
+    const used = new Set();
     for (const r of present) {
-      const blob = await Grid.pdf([Grid.data(t, r.st.versione, r.st, s)]);
-      Files.download(blob, U.safeName((s.classe ? s.classe + ' - ' : '') + U.studentName(r.st) + ' - ' + (t.argomento || t.materia || 'verifica')) + '.pdf');
-      await new Promise(res => setTimeout(res, 400));
+      let name = U.safeName(U.studentName(r.st) || 'studente');
+      for (let k = 2; used.has(name.toLowerCase()); k++) name = U.safeName(U.studentName(r.st)) + ' (' + k + ')';
+      used.add(name.toLowerCase());
+      zip.file(name + '.pdf', await Grid.pdf([Grid.data(t, r.st.versione, r.st, s)]));
     }
-    toast(present.length + ' PDF scaricati');
+    deliver(await zip.generateAsync({ type: 'blob' }), base + ' - PDF studenti.zip');
   });
 
   return html`
@@ -425,10 +429,8 @@ function SRiepilogo({ s }) {
     ${incomplete ? html`<div class="alert warn">⚠ ${incomplete} griglie non sono complete.</div>` : null}
     <div class="row gap wrap">
       <button class="btn primary" onClick=${() => withBusy('Creo l’Excel…', async () => deliver(await Summary.xlsx(s, true), base + ' - griglie.xlsx'))}>XLSX riepilogo + griglie</button>
-      <button class="btn" onClick=${() => withBusy('Creo l’Excel…', async () => deliver(await Summary.xlsx(s, false), base + ' - riepilogo.xlsx'))}>XLSX solo riepilogo</button>
-      <button class="btn" onClick=${() => withBusy('Creo il PDF…', async () => deliver(await Summary.pdf(s), base + ' - riepilogo.pdf'))}>PDF riepilogo</button>
-      <button class="btn" onClick=${() => withBusy('Creo il PDF…', async () => deliver(await Grid.pdf(present.map(r => Grid.data(t, r.st.versione, r.st, s))), base + ' - griglie.pdf'))}>PDF di tutte le griglie</button>
-      <button class="btn" onClick=${eachPdf}>Un PDF per studente</button>
+      <button class="btn" onClick=${() => withBusy('Creo il PDF…', async () => deliver(await Grid.pdf(present.map(r => Grid.data(t, r.st.versione, r.st, s))), base + ' - griglie.pdf'))}>PDF con tutte le griglie</button>
+      <button class="btn" onClick=${zipPdf}>ZIP con un PDF per studente</button>
     </div>
     <div class="table-scroll">
     <table class="tbl compact summary">

@@ -7,7 +7,8 @@ const Libs = {
     jspdf: 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',
     autotable: 'https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js',
     exceljs: 'https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js',
-    sheetjs: 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'
+    sheetjs: 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js',
+    jszip: 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js'
   },
   loaded: {},
   load(name) {
@@ -24,7 +25,8 @@ const Libs = {
   },
   async pdf() { await this.load('jspdf'); await this.load('autotable'); return window.jspdf.jsPDF; },
   async excel() { await this.load('exceljs'); return window.ExcelJS; },
-  async sheet() { await this.load('sheetjs'); return window.XLSX; }
+  async sheet() { await this.load('sheetjs'); return window.XLSX; },
+  async zip() { await this.load('jszip'); return window.JSZip; }
 };
 
 /* ---------------------------------------------------------------------

@@ -112,7 +112,31 @@ const Model = {
 
   newExercise(t, list) {
     const n = (list || t.esercizi).length + 1;
-    return { id: U.uid('es'), nome: 'Es ' + n, testo: '', indicatori: t.indicatori.map(i => i.id), bias: 0 };
+    return { id: U.uid('es'), nome: 'DV' + n, testo: '', indicatori: t.indicatori.map(i => i.id), bias: 0 };
+  },
+
+  /*
+   * Nomi automatici: DV = domande da valutare, DS = chiuse a risposta singola,
+   * DM = chiuse a risposta multipla. Si rinumerano solo i nomi automatici
+   * (anche quelli delle versioni precedenti: "Es 3", "D5"); quelli scelti a mano restano.
+   */
+  AUTO_DV: /^(Es ?|DV)\d+$/i,
+  AUTO_CLOSED: /^(D|DS|DM)\d+$/i,
+
+  renumber(t) {
+    let k = 0;
+    t.esercizi.forEach(e => { k++; if (Model.AUTO_DV.test(String(e.nome).trim())) e.nome = 'DV' + k; });
+    (t.versioni || []).forEach(v => {
+      let j = k;
+      (v.aggiunti || []).forEach(e => { j++; if (Model.AUTO_DV.test(String(e.nome).trim())) e.nome = 'DV' + j; });
+    });
+    let s = 0, m = 0;
+    ((t.chiuse && t.chiuse.domande) || []).forEach(q => {
+      const multi = q.tipo === 'composta' || q.tipo === 'associazione';
+      if (multi) m++; else s++;
+      if (Model.AUTO_CLOSED.test(String(q.nome).trim())) q.nome = (multi ? 'DM' + m : 'DS' + s);
+    });
+    return t;
   },
 
   newVersion(tipo) {
@@ -154,7 +178,7 @@ const Model = {
     });
     out.esercizi = (t.esercizi || []).map(e => Object.assign({ testo: '', indicatori: [], bias: 0 }, e));
     out.versioni = (t.versioni || []).map(v => Object.assign(Model.newVersion(v.tipo || 'ALTRO'), v));
-    return out;
+    return Model.renumber(out);
   },
 
   normalizeSession(s) {
@@ -517,17 +541,17 @@ const Calc = {
     const w = [];
     const std = Calc.standardWeights(t);
     if (std.biasSum) {
-      w.push('Le correzioni sommano ' + (std.biasSum > 0 ? '+' : '') + U.fmt(std.biasSum) + ': gli esercizi valgono ' + U.fmt(Math.round(std.R) + std.biasSum) +
+      w.push('Le correzioni sommano ' + (std.biasSum > 0 ? '+' : '') + U.fmt(std.biasSum) + ': le domande da valutare valgono ' + U.fmt(Math.round(std.R) + std.biasSum) +
         ' punti invece di ' + U.fmt(Math.round(std.R)) + ' (somma dei massimi degli indicatori) e il peso degli indicatori cambia di conseguenza.');
     }
     const exs = Calc.exercises(t, vId);
-    exs.forEach(e => { if (!Calc.validIndicators(t, e).length) w.push('«' + (e.nome || 'Esercizio') + '» non ha indicatori associati.'); });
+    exs.forEach(e => { if (!Calc.validIndicators(t, e).length) w.push('«' + (e.nome || 'Domanda') + '» non ha indicatori associati.'); });
     t.indicatori.forEach(i => Calc.levelIssues(i.livelli, U.num(i.max) || 0).forEach(x => w.push((i.nome || 'Indicatore') + ': ' + x)));
     if (t.distribuzione === 'bilanciata') {
       const M = Calc.matrix(t, vId);
       const totNom = U.sum(M.used, i => M.nominal[i.id]);
       const off = M.used.filter(i => totNom > 0 && Math.abs(M.eff[i.id] - M.nominal[i.id] * M.Tm / totNom) > 0.05);
-      if (off.length) w.push('Con questi esercizi non è possibile rispettare esattamente il peso di: ' + off.map(i => i.nome).join(', ') + '.');
+      if (off.length) w.push('Con queste domande non è possibile rispettare esattamente il peso di: ' + off.map(i => i.nome).join(', ') + '.');
     }
     return w;
   }

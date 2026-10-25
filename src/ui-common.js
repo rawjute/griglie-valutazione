@@ -116,6 +116,7 @@ async function withBusy(label, fn) {
 
 /* ---------------- modifiche ---------------- */
 function changedTpl() {
+  Model.renumber(S.tpl); // DV / DS / DM sempre in sequenza dopo aggiunte, eliminazioni e spostamenti
   S.tplDirty = true;
   S.tpl.modificato = new Date().toISOString();
   Draft.save();

@@ -9,7 +9,7 @@ function Builder() {
     { id: 'generale', label: 'Dati generali' },
     { id: 'livelli', label: 'Livelli predefiniti' },
     { id: 'indicatori', label: 'Indicatori', badge: t.indicatori.length || null },
-    { id: 'esercizi', label: 'Esercizi', badge: t.esercizi.length || null, badgeKind: stdWarn.length ? 'warn' : '' },
+    { id: 'esercizi', label: 'Domande da valutare', badge: t.esercizi.length || null, badgeKind: stdWarn.length ? 'warn' : '' },
     { id: 'chiuse', label: 'Domande chiuse', badge: t.chiuse.attive ? t.chiuse.domande.length : null },
     { id: 'versioni', label: 'Versioni', badge: t.versioni.length || null },
     { id: 'griglia', label: 'Griglia ed export' }
@@ -56,8 +56,8 @@ function BGenerale({ t }) {
       <div class="field">
         <span class="field-label">Punteggio totale della verifica</span>
         <span class="total-big">${U.fmt(Calc.total(t, 'std'))}</span>
-        <span class="hint">Calcolato: esercizi ${U.fmt(Calc.manualTotal(t, 'std'))}${Calc.closed(t, 'std').max ? ' + domande chiuse ' + U.fmt(Calc.closed(t, 'std').max) : ''}.
-          Gli esercizi valgono la somma dei massimi degli indicatori${Calc.standardWeights(t).biasSum ? ', più le correzioni' : ''}.</span>
+        <span class="hint">Calcolato: domande da valutare ${U.fmt(Calc.manualTotal(t, 'std'))}${Calc.closed(t, 'std').max ? ' + domande chiuse ' + U.fmt(Calc.closed(t, 'std').max) : ''}.
+          Le domande da valutare valgono la somma dei massimi degli indicatori${Calc.standardWeights(t).biasSum ? ', più le correzioni' : ''}.</span>
       </div>
       <${Field} label="Voto minimo" hint=${Calc.votoRule(t, Calc.total(t, 'std'))}>
         <${NumInput} value=${t.votoMin} min=${0} max=${10} onChange=${v => set('votoMin', v === null ? 0 : U.clamp(v, 0, 10))} width="80px" />
@@ -179,7 +179,7 @@ function BIndicatori({ t }) {
           <${IconBtn} icon="↑" title="Sposta su" disabled=${idx === 0} onClick=${() => { moveItem(t.indicatori, idx, -1); changedTpl(); }} />
           <${IconBtn} icon="↓" title="Sposta giù" disabled=${idx === t.indicatori.length - 1} onClick=${() => { moveItem(t.indicatori, idx, 1); changedTpl(); }} />
           <${IconBtn} icon="✕" title="Elimina indicatore" onClick=${async () => {
-            if (!(await ask('Eliminare l’indicatore «' + (ind.nome || 'senza nome') + '»? Verrà tolto anche dagli esercizi.', 'Elimina', true))) return;
+            if (!(await ask('Eliminare l’indicatore «' + (ind.nome || 'senza nome') + '»? Verrà tolto anche dalle domande da valutare.', 'Elimina', true))) return;
             t.indicatori = t.indicatori.filter(x => x !== ind);
             const strip = e => { e.indicatori = e.indicatori.filter(x => x !== ind.id); };
             t.esercizi.forEach(strip);
@@ -212,7 +212,7 @@ function ExerciseRow({ t, ex, idx, list, weight, extra }) {
     ${extra}
     <td><${NumInput} value=${ex.bias} width="56px" onChange=${v => { ex.bias = v === null ? 0 : Math.round(v); changedTpl(); }} /></td>
     <td class="c strong">${U.fmt(weight)}</td>
-    <td><${IconBtn} icon="✕" title="Elimina esercizio" onClick=${() => { list.splice(idx, 1); changedTpl(); }} /></td>
+    <td><${IconBtn} icon="✕" title="Elimina domanda" onClick=${() => { list.splice(idx, 1); changedTpl(); }} /></td>
   </tr>`;
 }
 
@@ -220,8 +220,8 @@ function BEsercizi({ t }) {
   const std = Calc.standardWeights(t);
   const [nAdd, setNAdd] = useState(1);
   return html`
-    <p class="muted">Seleziona gli indicatori coinvolti in ogni esercizio. Il punteggio di ogni indicatore si divide in parti uguali tra gli esercizi che lo coprono:
-      il «grezzo» di un esercizio è la somma di queste parti (es. un indicatore da 20 coperto da 4 esercizi vale 5 in ciascuno).
+    <p class="muted">Seleziona gli indicatori coinvolti in ogni domanda. Il punteggio di ogni indicatore si divide in parti uguali tra le domande che lo coprono:
+      il «grezzo» di una domanda è la somma di queste parti (es. un indicatore da 20 coperto da 4 domande vale 5 in ciascuna).
       Il grezzo viene arrotondato a un intero («base») senza cambiare il totale. La <b>correzione</b> (il tuo bias) aggiunge o toglie punti per pesare la difficoltà:
       se le correzioni non sommano a zero cambia anche il totale della verifica.</p>
     <div class="table-scroll">
@@ -245,9 +245,9 @@ function BEsercizi({ t }) {
     </div>
     <div class="row gap wrap">
       <button class="btn" onClick=${() => { for (let k = 0; k < Math.max(1, nAdd); k++) t.esercizi.push(Model.newExercise(t)); changedTpl(); }}>+ Aggiungi</button>
-      <${NumInput} value=${nAdd} min=${1} width="56px" onChange=${v => setNAdd(Math.max(1, Math.round(v || 1)))} /> <span class="muted">esercizi</span>
+      <${NumInput} value=${nAdd} min=${1} width="56px" onChange=${v => setNAdd(Math.max(1, Math.round(v || 1)))} /> <span class="muted">domande</span>
       <span class="spacer"></span>
-      <span class="total-line">Totale verifica: ${U.fmt(Calc.total(t, 'std'))}${Calc.closed(t, 'std').max ? ' (esercizi ' + U.fmt(Calc.manualTotal(t, 'std')) + ' + domande chiuse ' + U.fmt(Calc.closed(t, 'std').max) + ')' : ''}</span>
+      <span class="total-line">Totale verifica: ${U.fmt(Calc.total(t, 'std'))}${Calc.closed(t, 'std').max ? ' (domande da valutare ' + U.fmt(Calc.manualTotal(t, 'std')) + ' + domande chiuse ' + U.fmt(Calc.closed(t, 'std').max) + ')' : ''}</span>
     </div>
     <${Warnings} list=${Calc.warnings(t, 'std')} />
     <${MatrixView} t=${t} vId="std" />`;
@@ -259,18 +259,18 @@ function MatrixView({ t, vId }) {
   return html`<div class="card">
     <div class="row gap wrap">
       <h3 class="grow">Distribuzione dei punti</h3>
-      <label class="field inline"><span class="field-label">Ripartizione dentro l'esercizio</span>
+      <label class="field inline"><span class="field-label">Ripartizione dentro la domanda</span>
         <select value=${t.distribuzione} onChange=${e => { t.distribuzione = e.target.value; changedTpl(); }}>
           <option value="proporzionale">Proporzionale alle quote degli indicatori</option>
           <option value="bilanciata">Bilanciata sui pesi degli indicatori</option>
         </select>
       </label>
     </div>
-    <p class="muted small">Ogni casella è il valore in punti di quell'indicatore in quell'esercizio. La somma per riga dà il punteggio dell'esercizio, la somma per colonna il peso effettivo dell'indicatore: i due totali coincidono sempre.
+    <p class="muted small">Ogni casella è il valore in punti di quell'indicatore in quella domanda. La somma per riga dà il punteggio della domanda, la somma per colonna il peso effettivo dell'indicatore: i due totali coincidono sempre.
       ${t.distribuzione === 'bilanciata' ? ' La ripartizione bilanciata modifica le caselle in modo che ogni indicatore pesi quanto previsto.' : ' Arrotondamenti e correzioni possono far scostare un po’ il peso effettivo di un indicatore da quello previsto: la modalità bilanciata lo riallinea.'}</p>
     <div class="table-scroll">
     <table class="tbl compact matrix">
-      <thead><tr><th>Esercizio</th>${M.used.map(i => html`<th>${i.nome}</th>`)}<th>Peso</th></tr></thead>
+      <thead><tr><th>Domanda</th>${M.used.map(i => html`<th>${i.nome}</th>`)}<th>Peso</th></tr></thead>
       <tbody>${M.rows.map(r => html`<tr>
         <td>${r.ex.nome}${r.ex.aggiunto ? html` <span class="tag">aggiunto</span>` : null}</td>
         ${M.used.map(i => html`<td class=${'c ' + (r.cells[i.id] === undefined ? 'off' : '')}>${r.cells[i.id] === undefined ? '–' : U.fmt(r.cells[i.id])}</td>`)}
@@ -294,16 +294,15 @@ function BChiuse({ t }) {
   return html`
     <label class="check"><input type="checkbox" checked=${c.attive} onChange=${e => { c.attive = e.target.checked; changedTpl(); }} /> La verifica contiene domande a risposta chiusa</label>
     ${c.attive ? html`
-      <p class="muted">Le domande chiuse formano un blocco a sé: il loro punteggio si somma a quello degli esercizi valutati con la griglia.
-        Punteggio totale ${U.fmt(Calc.total(t, 'std'))} = esercizi ${U.fmt(Calc.manualTotal(t, 'std'))} + domande chiuse ${U.fmt(C.max)}.</p>
+      <p class="muted">Le domande chiuse formano un blocco a sé: il loro punteggio si somma a quello delle domande da valutare con la griglia.
+        Punteggio totale ${U.fmt(Calc.total(t, 'std'))} = domande da valutare ${U.fmt(Calc.manualTotal(t, 'std'))} + domande chiuse ${U.fmt(C.max)}.</p>
       <div class="card row gap wrap">
         <span>Genera</span><${NumInput} value=${n} min=${1} width="60px" onChange=${v => setN(Math.max(1, Math.round(v || 1)))} />
-        <span>domande da</span><${NumInput} value=${pts} min=${0} width="60px" onChange=${v => setPts(v || 0)} /><span>punti</span>
+        <span>domande a risposta singola (DS) da</span><${NumInput} value=${pts} min=${0} width="60px" onChange=${v => setPts(v || 0)} /><span>punti</span>
         <button class="btn" onClick=${async () => {
-          const composte = c.domande.filter(q => Calc.isComposite(q));
-          if (c.domande.length > composte.length && !(await ask('Sostituire le domande a risposta singola esistenti? Le risposte composte restano.', 'Sostituisci'))) return;
-          c.domande = Array.from({ length: n }, (_, k) => ({ id: U.uid('q'), nome: 'D' + (k + 1), tipo: 'singola', punti: pts }))
-            .concat(composte.map((q, k) => Object.assign(q, { nome: /^D\d+$/.test(q.nome) ? 'D' + (n + k + 1) : q.nome })));
+          const multiple = c.domande.filter(q => Calc.isComposite(q));
+          if (c.domande.length > multiple.length && !(await ask('Sostituire le domande a risposta singola esistenti? Quelle a risposta multipla restano.', 'Sostituisci'))) return;
+          c.domande = Array.from({ length: n }, (_, k) => ({ id: U.uid('q'), nome: 'DS' + (k + 1), tipo: 'singola', punti: pts })).concat(multiple);
           changedTpl();
         }}>Genera</button>
       </div>
@@ -312,7 +311,8 @@ function BChiuse({ t }) {
         <${Field} label="Punti per risposta non data" hint="Solo domande a risposta singola."><${NumInput} value=${c.nonData} width="90px" onChange=${v => { c.nonData = v || 0; changedTpl(); }} /><//>
         <label class="check"><input type="checkbox" checked=${c.minimoZero} onChange=${e => { c.minimoZero = e.target.checked; changedTpl(); }} /> Il blocco non scende sotto zero</label>
       </div>
-      <p class="muted small">Le domande a <b>risposta composta</b> (associazioni, cloze, completamenti, più risposte da indicare…) hanno più parti
+      <p class="muted small">Prefissi automatici: <b>DS</b> risposta singola, <b>DM</b> risposta multipla (la numerazione si aggiorna da sola; i nomi scritti a mano restano).
+        Le domande a <b>risposta multipla</b> (associazioni, cloze, completamenti, più risposte da indicare…) hanno più parti
         e danno un punteggio parziale: punti × parti corrette / parti totali (es. 4 punti, 1 parte corretta su 4 = 1 punto).
         In correzione inserisci solo quante parti sono corrette.</p>
       <table class="tbl compact" style="max-width:640px">
@@ -325,8 +325,8 @@ function BChiuse({ t }) {
             delete q.coppie;
             changedTpl();
           }}>
-            <option value="singola">Risposta singola</option>
-            <option value="composta">Risposta composta</option>
+            <option value="singola">Risposta singola (DS)</option>
+            <option value="composta">Risposta multipla (DM)</option>
           </select></td>
           <td>${Calc.isComposite(q) ? html`<${NumInput} value=${Calc.partsOf(q)} min=${1} width="60px" onChange=${v => { q.parti = Math.max(1, Math.round(v || 1)); delete q.coppie; changedTpl(); }} />` : null}</td>
           <td><${NumInput} value=${q.punti} min=${0} width="80px" onChange=${v => { q.punti = v || 0; changedTpl(); }} /></td>
@@ -337,10 +337,10 @@ function BChiuse({ t }) {
       <div class="row gap wrap">
         <button class="btn" onClick=${() => {
           const last = [...c.domande].reverse().find(q => !Calc.isComposite(q));
-          c.domande.push({ id: U.uid('q'), nome: 'D' + (c.domande.length + 1), tipo: 'singola', punti: last ? last.punti : 1 });
+          c.domande.push({ id: U.uid('q'), nome: 'DS0', tipo: 'singola', punti: last ? last.punti : 1 });
           changedTpl();
-        }}>+ Aggiungi domanda</button>
-        <button class="btn" onClick=${() => { c.domande.push({ id: U.uid('q'), nome: 'D' + (c.domande.length + 1), tipo: 'composta', parti: 4, punti: 4 }); changedTpl(); }}>+ Aggiungi risposta composta</button>
+        }}>+ Aggiungi risposta singola (DS)</button>
+        <button class="btn" onClick=${() => { c.domande.push({ id: U.uid('q'), nome: 'DM0', tipo: 'composta', parti: 4, punti: 4 }); changedTpl(); }}>+ Aggiungi risposta multipla (DM)</button>
       </div>
       ${!C.uniform ? html`<div class="alert warn">⚠ Le domande a risposta singola hanno punteggi diversi: in correzione andranno segnate una per una invece che con i soli conteggi.</div>` : null}
     ` : null}`;
@@ -354,8 +354,8 @@ function BVersioni({ t }) {
     t.versioni.push(nv); S.editVersion = nv.id; changedTpl();
   };
   return html`
-    <p class="muted">Le versioni (DSA, NAI, PEI…) partono dalla verifica standard: puoi togliere esercizi, cambiarne il testo, aggiungerne di nuovi.
-      Ogni esercizio mantiene il punteggio che ha nella versione standard: il totale della versione è la somma di quello che contiene
+    <p class="muted">Le versioni (DSA, NAI, PEI…) partono dalla verifica standard: puoi togliere domande, cambiarne il testo, aggiungerne di nuove.
+      Ogni domanda mantiene il punteggio che ha nella versione standard: il totale della versione è la somma di quello che contiene
       (la standard vale ${U.fmt(Calc.total(t, 'std'))}). Il voto si calcola sempre sul totale della versione svolta.</p>
     <div class="row gap wrap">
       ${Model.BES_TYPES.map(tp => html`<button class="btn" onClick=${() => add(tp)}>+ ${tp}</button>`)}
@@ -384,10 +384,10 @@ function VersionEditor({ t, v }) {
       <button class="btn" onClick=${() => { const c = U.clone(v); c.id = U.uid('ver'); c.nome = v.nome + ' (copia)'; c.aggiunti.forEach(e => { const old = e.id; e.id = U.uid('es'); if (c.adj[old] !== undefined) { c.adj[e.id] = c.adj[old]; delete c.adj[old]; } }); t.versioni.push(c); S.editVersion = c.id; changedTpl(); }}>Duplica</button>
       <button class="btn danger" onClick=${async () => { if (!(await ask('Eliminare la versione ' + v.nome + '?', 'Elimina', true))) return; t.versioni = t.versioni.filter(x => x !== v); S.editVersion = null; changedTpl(); }}>Elimina</button>
     </div>
-    <h3>Esercizi della verifica standard</h3>
+    <h3>Domande da valutare della verifica standard</h3>
     <div class="table-scroll">
     <table class="tbl compact">
-      <thead><tr><th>Includi</th><th>Esercizio</th><th>Testo personalizzato</th><th>Peso standard</th><th>Correzione</th><th>Peso in ${v.nome}</th></tr></thead>
+      <thead><tr><th>Includi</th><th>Domanda</th><th>Testo personalizzato</th><th>Peso standard</th><th>Correzione</th><th>Peso in ${v.nome}</th></tr></thead>
       <tbody>${t.esercizi.map(ex => {
         const incl = !v.esclusi.includes(ex.id);
         return html`<tr key=${ex.id} class=${incl ? '' : 'dim'}>
@@ -401,13 +401,13 @@ function VersionEditor({ t, v }) {
       })}</tbody>
     </table>
     </div>
-    <h3>Esercizi aggiuntivi di questa versione</h3>
+    <h3>Domande da valutare aggiuntive di questa versione</h3>
     ${v.aggiunti.length ? html`<div class="table-scroll"><table class="tbl compact">
       <thead><tr><th></th><th>Nome</th><th>Consegna</th>${t.indicatori.map(i => html`<th class="vert" title=${i.nome}><span>${i.nome}</span></th>`)}<th>Correzione</th><th>Peso</th><th></th></tr></thead>
       <tbody>${v.aggiunti.map((ex, idx) => html`<${ExerciseRow} key=${ex.id} t=${t} ex=${ex} idx=${idx} list=${v.aggiunti} weight=${W[ex.id]} extra=${null} />`)}</tbody>
     </table></div>` : null}
-    <button class="btn" onClick=${() => { const e = Model.newExercise(t, t.esercizi.concat(v.aggiunti)); e.nome = 'Es ' + (t.esercizi.length + v.aggiunti.length + 1); v.aggiunti.push(e); changedTpl(); }}>+ Aggiungi esercizio</button>
-    <div class="total-line">Totale ${v.nome}: ${U.fmt(Tm + C.max)} punti${C.items.length ? ' (esercizi ' + U.fmt(Tm) + ' + domande chiuse ' + U.fmt(C.max) + ')' : ''}</div>
+    <button class="btn" onClick=${() => { const e = Model.newExercise(t, t.esercizi.concat(v.aggiunti)); v.aggiunti.push(e); changedTpl(); }}>+ Aggiungi domanda</button>
+    <div class="total-line">Totale ${v.nome}: ${U.fmt(Tm + C.max)} punti${C.items.length ? ' (domande da valutare ' + U.fmt(Tm) + ' + domande chiuse ' + U.fmt(C.max) + ')' : ''}</div>
     ${t.chiuse.attive && t.chiuse.domande.length ? html`
       <h3>Domande chiuse</h3>
       <p class="muted small">Ogni domanda mantiene il suo punteggio: in questa versione il blocco vale ${U.fmt(C.max)} punti su ${U.fmt(C.all)}.</p>

@@ -19,7 +19,7 @@ Web app per costruire griglie di valutazione per indicatori e usarle per corregg
 - **Riprendere**: dalla home, *Apri verifica (JSON)* o *Apri valutazione (JSON)*.
 - **Valutare una classe**: *Nuova valutazione da verifica (JSON)* oppure, dalla verifica aperta, *Valuta una classe*. Poi carichi l'elenco studenti da un file CSV o Excel.
 - **Lavoro non salvato**: finché non scarichi il JSON, nel browser resta una bozza. Alla riapertura la home propone di riprenderla.
-- **Export** (PDF, XLSX, HTML): vengono scaricati nella cartella dei download del browser.
+- **Export**: dalla verifica, la griglia in PDF o HTML; dalla valutazione, XLSX con riepilogo e griglie, un PDF con tutte le griglie oppure uno ZIP con un PDF per studente. Finiscono nella cartella dei download del browser.
 
 ## Elenchi classe
 
@@ -32,20 +32,20 @@ Il CSV può usare il punto e virgola, come quello salvato da Excel in italiano.
 - Ogni **indicatore** ha un punteggio massimo, cioè la scala su cui inserisci i voti (es. 0–20), e **livelli propri**: numero, nomi, percentuali e descrittori possono cambiare da un indicatore all'altro.
 - Per ogni livello indichi **fino a che percentuale** del massimo arriva. Il livello più alto arriva sempre al 100 %, l'ultimo parte da 0. Le fasce usano anche i decimali: un livello arriva fino a percentuale × massimo (incluso) e parte appena sopra il limite del livello inferiore. Su 15 punti con la scala predefinita: Eccellente "> 12 – 15", Buono "> 9 – 12", Sufficiente "> 6,75 – 9", Insufficiente "> 4,5 – 6,75", Gravemente insufficiente "0 – 4,5".
 - La scheda *Livelli predefiniti* contiene la scala data ai nuovi indicatori (Eccellente 100 %, Buono 80 %, Sufficiente 60 %, Insufficiente 45 %, Gravemente insufficiente 30 %); puoi anche applicarla a tutti.
-- Il punteggio di ogni indicatore **si divide in parti uguali tra gli esercizi che lo coprono**: un indicatore da 20 coperto da 4 esercizi vale 5 in ciascuno. Il "grezzo" di un esercizio è la somma di queste parti.
-- Ogni **esercizio** ha un peso intero in punti: il grezzo arrotondato senza cambiarne la somma (metodo dei resti maggiori), più la **correzione** (il tuo bias). Se le correzioni non sommano a zero cambia anche il totale della verifica, e l'app lo segnala.
-- Ogni casella esercizio × indicatore vale una parte del peso dell'esercizio. Il punteggio di un esercizio è la somma della sua riga, il punteggio di un indicatore la somma della sua colonna. Partono dalla stessa matrice, quindi **i due totali coincidono sempre**. Senza correzioni e arrotondamenti ogni indicatore pesa esattamente quanto previsto.
-  - *Proporzionale*: il peso dell'esercizio si divide in proporzione alle parti degli indicatori coinvolti.
+- Il punteggio di ogni indicatore **si divide in parti uguali tra le domande da valutare che lo coprono**: un indicatore da 20 coperto da 4 domande vale 5 in ciascuna. Il "grezzo" di una domanda è la somma di queste parti.
+- Ogni **domanda da valutare** (DV1, DV2…) ha un peso intero in punti: il grezzo arrotondato senza cambiarne la somma (metodo dei resti maggiori), più la **correzione** (il tuo bias). Se le correzioni non sommano a zero cambia anche il totale della verifica, e l'app lo segnala.
+- Ogni casella domanda × indicatore vale una parte del peso della domanda. Il punteggio di una domanda è la somma della sua riga, il punteggio di un indicatore la somma della sua colonna. Partono dalla stessa matrice, quindi **i due totali coincidono sempre**. Senza correzioni e arrotondamenti ogni indicatore pesa esattamente quanto previsto.
+  - *Proporzionale*: il peso della domanda si divide in proporzione alle parti degli indicatori coinvolti.
   - *Bilanciata*: le caselle vengono riaggiustate in modo che ogni indicatore pesi quanto previsto anche dopo correzioni e arrotondamenti.
-- In correzione inserisci i punti sulla scala dell'indicatore. Il punteggio dell'esercizio è la somma, per ogni indicatore, di (punti / massimo) × valore della casella. Accanto a ogni indicatore vedi le fasce dei livelli; il descrittore del livello compare nella barra in fondo mentre scrivi o passando sopra una fascia.
-- Le **domande chiuse** sono un blocco a sé e si sommano agli esercizi. Ce ne sono di due tipi:
-  - *Risposta singola*: corretta / errata / non data. Se valgono tutte uguale, in correzione si inseriscono solo i tre conteggi; altrimenti si segnano una per una.
-  - *Risposta composta* (associazioni, cloze, completamenti, più risposte da indicare…): ha un numero di parti e dà un punteggio parziale, punti × parti corrette / parti totali. In correzione si inserisce quante parti sono corrette.
+- In correzione inserisci i punti sulla scala dell'indicatore. Il punteggio della domanda è la somma, per ogni indicatore, di (punti / massimo) × valore della casella. Accanto a ogni indicatore vedi le fasce dei livelli; il descrittore del livello compare nella barra in fondo mentre scrivi o passando sopra una fascia.
+- Le **domande chiuse** sono un blocco a sé e si sommano alle domande da valutare. Ce ne sono di due tipi:
+  - *Risposta singola* (DS1, DS2…): corretta / errata / non data. Se valgono tutte uguale, in correzione si inseriscono solo i tre conteggi; altrimenti si segnano una per una.
+  - *Risposta multipla* (DM1, DM2…: associazioni, cloze, completamenti, più risposte da indicare…): ha un numero di parti e dà un punteggio parziale, punti × parti corrette / parti totali. In correzione si inserisce quante parti sono corrette.
 - **Voto** = punteggio / totale × 10, prima con due decimali e poi arrotondato al mezzo voto. Il **voto minimo** (predefinito 2) si imposta nei dati generali, in due modi:
   - *Soglia*: un voto calcolato sotto il minimo diventa il minimo (60 % dei punti = 6).
   - *Scala*: 0 punti = voto minimo, punteggio pieno = 10. Con minimo 3, voto = 3 + punteggio / totale × 7.
 - Il **punteggio totale** non si imposta: è la somma dei massimi degli indicatori (più le eventuali correzioni) e dei punti delle domande chiuse.
-- **Versioni** (DSA, NAI, PEI…): ogni esercizio e ogni domanda chiusa mantengono il punteggio che hanno nella standard. Il totale della versione è la somma di quello che contiene, e il voto si calcola su quel totale.
+- **Versioni** (DSA, NAI, PEI…): ogni domanda da valutare e ogni domanda chiusa mantengono il punteggio che hanno nella standard. Il totale della versione è la somma di quello che contiene, e il voto si calcola su quel totale.
 
 ## Pubblicazione su GitHub Pages
 

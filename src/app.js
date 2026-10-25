@@ -32,7 +32,7 @@ function Home() {
       <section class="card mode">
         <div class="mode-icon">✎</div>
         <h2>Creazione verifica</h2>
-        <p class="muted">Indicatori, livelli, esercizi, domande chiuse e versioni DSA / NAI / PEI. Esporta la griglia in PDF o HTML.</p>
+        <p class="muted">Indicatori, livelli, domande da valutare, domande chiuse e versioni DSA / NAI / PEI. Esporta la griglia in PDF o HTML.</p>
         <div class="row gap wrap">
           <button class="btn primary" onClick=${() => openTemplateObj(Model.newTemplate(), false)}>Nuova verifica</button>
           <button class="btn" onClick=${() => openJSON('edit')}>Apri verifica (JSON)</button>
@@ -48,8 +48,7 @@ function Home() {
         </div>
       </section>
     </div>
-    <p class="muted small center">Verifiche e valutazioni si salvano come file JSON sul tuo computer: con «Salva» scarichi il file, con «Apri» lo riprendi.
-      Se usi Google Drive per desktop, salvali in una cartella di Drive per averli anche sugli altri dispositivi.</p>
+    <p class="muted small center">Verifiche e valutazioni si salvano come file JSON sul tuo computer: con «Salva» scarichi il file, con «Apri» lo riprendi.</p>
   </div>`;
 }
 

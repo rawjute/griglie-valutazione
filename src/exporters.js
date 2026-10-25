@@ -39,7 +39,7 @@ const Grid = {
           parts.push(C.singole.length + ' domande · corretta: ' + vals.join('/') + ' pt · errata: ' + U.fmt(U.num(t.chiuse.errata) || 0) + ' · non data: ' + U.fmt(U.num(t.chiuse.nonData) || 0));
         }
         if (C.composte.length) {
-          parts.push((C.composte.length === 1 ? '1 risposta composta (' + C.composte[0].parti + ' parti, ' : C.composte.length + ' risposte composte (') +
+          parts.push((C.composte.length === 1 ? '1 domanda a risposta multipla (' + C.composte[0].parti + ' parti, ' : C.composte.length + ' domande a risposta multipla (') +
             U.fmt(U.sum(C.composte, q => q.valore)) + ' pt, punteggio proporzionale alle parti corrette)');
         }
         closedLine = { label: 'Domande a risposta chiusa', text: parts.join(' · '), value: U.fmt(C.max) };
@@ -64,7 +64,9 @@ const Grid = {
       totManual: M.Tm,
       res,
       total: res ? U.fmt(res.totale) + ' / ' + U.fmt(res.max) : U.fmt(M.Tm + C.max),
-      voto: res ? U.fmtFixed(res.voto, 2) + '   ·   arrotondato: ' + U.fmt(res.votoArr, 1) : Calc.votoRule(t, M.Tm + C.max),
+      // voto finale (grande, nell'ultima colonna a destra) e dettaglio del calcolo accanto
+      voto: res ? U.fmt(res.votoArr, 1) : '',
+      votoDettaglio: res ? 'voto calcolato ' + U.fmtFixed(res.voto, 2) + ', arrotondato al mezzo voto' : Calc.votoRule(t, M.Tm + C.max),
       note: showNote ? t.notaPiede : '',
       info: stu ? [['Alunno', U.studentName(stu)], ['Classe', (ctx && ctx.classe) || ''], ['Data', U.dateIT(stu.data || (ctx && ctx.data))]] : null
     };
@@ -83,6 +85,10 @@ const Grid = {
 .gv-grid .gv-ns{background:#fdecea;text-align:center;color:#a33}
 .gv-grid .gv-foot td{background:#f6f8fb;font-weight:600}
 .gv-grid .gv-total td{background:#dfe7f3;font-weight:700}
+.gv-grid .gv-voto td{border:2px solid #1f3d73}
+.gv-grid .gv-voto-label{text-align:right;font-size:16px;font-weight:800;letter-spacing:.06em;background:#dfe7f3}
+.gv-grid .gv-voto-det{font-size:11px;font-weight:400;letter-spacing:0;color:#444;margin-right:14px}
+.gv-grid .gv-voto-val{text-align:center;font-size:28px;font-weight:800;min-width:64px;height:44px;background:#1f3d73;color:#fff}
 .gv-grid .gv-note{font-style:italic;font-size:11px;border:none;padding-top:8px}
 .gv-info{margin-top:10px;font:13px "Segoe UI",Arial,sans-serif;display:flex;gap:28px}
 .gv-info b{font-weight:600}
@@ -117,11 +123,12 @@ const Grid = {
       vals.forEach(v => { s += '<td class="c">' + e(v) + '</td>'; });
       return s + '<td class="c">' + e(last) + '</td></tr>';
     };
-    h += foot(d.student ? 'Punteggio massimo esercizio' : 'Punteggio esercizio', d.cols.map(c => U.fmt(c.peso)), U.fmt(d.totManual));
+    h += foot(d.student ? 'Punteggio massimo domanda' : 'Punteggio domanda', d.cols.map(c => U.fmt(c.peso)), U.fmt(d.totManual));
     if (d.student) h += foot('Punteggio ottenuto', d.cols.map(c => c.nonSvolto ? 'N.S.' : U.fmt(c.punti)), U.fmt(d.res.manuale));
     if (d.closedLine) h += '<tr class="gv-foot"><td colspan="5">' + e(d.closedLine.label) + '</td><td colspan="' + n + '">' + e(d.closedLine.text) + '</td><td class="c">' + e(d.closedLine.value) + '</td></tr>';
     h += '<tr class="gv-total"><td colspan="5">PUNTEGGIO TOTALE</td><td colspan="' + n + '"></td><td class="c">' + e(d.total) + '</td></tr>';
-    h += '<tr class="gv-total"><td colspan="5">VOTO</td><td colspan="' + (n + 1) + '" class="c">' + e(d.voto) + '</td></tr>';
+    h += '<tr class="gv-voto"><td colspan="' + (5 + n) + '" class="gv-voto-label"><span class="gv-voto-det">' + e(d.votoDettaglio) + '</span>VOTO</td>' +
+      '<td class="gv-voto-val">' + e(d.voto) + '</td></tr>';
     if (d.note) h += '<tr><td class="gv-note" colspan="' + width + '">' + e(d.note) + '</td></tr>';
     h += '</tbody></table>';
     if (d.info) h += '<div class="gv-info">' + d.info.map(([k, v]) => '<div><b>' + e(k) + ':</b> ' + e(v) + '</div>').join('') + '</div>';
@@ -190,7 +197,7 @@ const Grid = {
       ...vals.map(v => ({ content: v, styles: { halign: 'center', fontStyle: 'bold', fillColor: fill || pale } })),
       { content: last, styles: { halign: 'center', fontStyle: 'bold', fillColor: fill || pale } }
     ];
-    body.push(foot(d.student ? 'Punteggio massimo esercizio' : 'Punteggio esercizio', d.cols.map(c => U.fmt(c.peso)), U.fmt(d.totManual)));
+    body.push(foot(d.student ? 'Punteggio massimo domanda' : 'Punteggio domanda', d.cols.map(c => U.fmt(c.peso)), U.fmt(d.totManual)));
     if (d.student) body.push(foot('Punteggio ottenuto', d.cols.map(c => c.nonSvolto ? 'N.S.' : U.fmt(c.punti)), U.fmt(d.res.manuale)));
     if (d.closedLine) body.push([
       { content: d.closedLine.label, colSpan: 5, styles: { fontStyle: 'bold', fillColor: pale } },
@@ -202,8 +209,8 @@ const Grid = {
       { content: d.total, styles: { halign: 'center', fontStyle: 'bold', fillColor: blue } }
     ]);
     body.push([
-      { content: 'VOTO', colSpan: 2, styles: { fontStyle: 'bold', fillColor: blue } },
-      { content: d.voto, colSpan: n + 4, styles: { halign: 'center', fontStyle: 'bold', fillColor: blue } }
+      { content: d.votoDettaglio + '      VOTO', colSpan: 5 + n, styles: { halign: 'right', valign: 'middle', fontStyle: 'bold', fontSize: fs + 4, fillColor: blue, minCellHeight: 13 } },
+      { content: d.voto, styles: { halign: 'center', valign: 'middle', fontStyle: 'bold', fontSize: 20, fillColor: [31, 61, 115], textColor: [255, 255, 255], lineWidth: 0.6, lineColor: [31, 61, 115] } }
     ]);
 
     doc.setFont('helvetica', 'bold');
@@ -313,7 +320,7 @@ const Grid = {
       set(r, lastCol, numOrText(last), { bold: true, fill: f || PALE, align: center });
       r++;
     };
-    footRow(d.student ? 'Punteggio massimo esercizio' : 'Punteggio esercizio', d.cols.map(c => U.fmt(c.peso)), U.fmt(d.totManual));
+    footRow(d.student ? 'Punteggio massimo domanda' : 'Punteggio domanda', d.cols.map(c => U.fmt(c.peso)), U.fmt(d.totManual));
     if (d.student) footRow('Punteggio ottenuto', d.cols.map(c => c.nonSvolto ? 'N.S.' : U.fmt(c.punti)), U.fmt(d.res.manuale));
     const spanRow = (label, text, last, f) => {
       ws.mergeCells(r, 1, r, 5); set(r, 1, label, { bold: true, fill: f });
@@ -331,7 +338,15 @@ const Grid = {
     };
     if (d.closedLine) spanRow(d.closedLine.label, d.closedLine.text, d.closedLine.value, PALE);
     spanRow('PUNTEGGIO TOTALE', '', d.total, BLUE);
-    spanRow('VOTO', d.voto, undefined, BLUE);
+    // voto finale: etichetta allineata a destra e valore grande nell'ultima colonna
+    ws.mergeCells(r, 1, r, lastCol - 1);
+    const vl = set(r, 1, d.votoDettaglio + '      VOTO', { fill: BLUE, align: { horizontal: 'right' } });
+    vl.font = { bold: true, size: 14 };
+    for (let c = 2; c < lastCol; c++) set(r, c, null, { fill: BLUE });
+    const vv = set(r, lastCol, numOrText(d.voto), { fill: 'FF1F3D73', align: center });
+    vv.font = { bold: true, size: 22, color: { argb: 'FFFFFFFF' } };
+    ws.getRow(r).height = 34;
+    r++;
     if (d.note) { r++; ws.mergeCells(r, 1, r, lastCol); ws.getCell(r, 1).value = d.note; ws.getCell(r, 1).font = { italic: true, size: 9 }; r++; }
     if (d.info) {
       r++;
@@ -414,27 +429,5 @@ const Summary = {
         });
       }
     });
-  },
-
-  async pdf(s) {
-    const jsPDF = await Libs.pdf();
-    const t = s.template;
-    const cols = Summary.columns(s);
-    const hasClosed = t.chiuse.attive && t.chiuse.domande.length;
-    const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(12);
-    doc.text('Riepilogo — ' + Model.templateTitle(t) + ' — classe ' + (s.classe || ''), 10, 12);
-    const head = [['Studente', 'Data', 'Versione', ...cols.map(c => c.nome), ...(hasClosed ? ['Chiuse'] : []), 'Punteggio', 'Voto', 'Arr.']];
-    const body = Summary.rows(s).map(({ st, res, assente }) => {
-      if (assente) return [U.studentName(st), U.dateIT(st.data || s.data), Model.versionName(t, st.versione), { content: 'Assente', colSpan: cols.length + (hasClosed ? 1 : 0) + 3, styles: { halign: 'center', textColor: [150, 150, 150] } }];
-      return [
-        U.studentName(st), U.dateIT(st.data || s.data), Model.versionName(t, st.versione),
-        ...cols.map(c => { const x = res.esercizi[c.id]; return !x ? '-' : x.nonSvolto ? 'N.S.' : U.fmt(x.punti); }),
-        ...(hasClosed ? [U.fmt(res.chiuse)] : []),
-        U.fmt(res.totale) + '/' + U.fmt(res.max), U.fmtFixed(res.voto, 2), U.fmt(res.votoArr, 1)
-      ];
-    });
-    doc.autoTable({ head, body, startY: 16, theme: 'grid', styles: { fontSize: 7.5, cellPadding: 1.2, halign: 'center' }, columnStyles: { 0: { halign: 'left', cellWidth: 40 } }, headStyles: { fillColor: [223, 231, 243], textColor: [17, 17, 17] } });
-    return doc.output('blob');
   }
 };
