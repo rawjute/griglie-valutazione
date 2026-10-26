@@ -39,13 +39,14 @@ Il CSV può usare il punto e virgola, come quello salvato da Excel in italiano.
   - *Bilanciata*: le caselle vengono riaggiustate in modo che ogni indicatore pesi quanto previsto anche dopo correzioni e arrotondamenti.
 - In correzione inserisci i punti sulla scala dell'indicatore. Il punteggio della domanda è la somma, per ogni indicatore, di (punti / massimo) × valore della casella. Accanto a ogni indicatore vedi le fasce dei livelli; il descrittore del livello compare nella barra in fondo mentre scrivi o passando sopra una fascia.
 - Le **domande chiuse** sono un blocco a sé e si sommano alle domande da valutare. Ce ne sono di due tipi:
-  - *Risposta singola* (DS1, DS2…): corretta / errata / non data. Se valgono tutte uguale, in correzione si inseriscono solo i tre conteggi; altrimenti si segnano una per una.
+  - *Risposta singola* (DS): si indica solo quante sono e quanto vale ciascuna. In correzione si inseriscono i tre conteggi: corrette, errate, non date.
   - *Risposta multipla* (DM1, DM2…: associazioni, cloze, completamenti, più risposte da indicare…): ha un numero di parti e dà un punteggio parziale, punti × parti corrette / parti totali. In correzione si inserisce quante parti sono corrette.
 - **Voto** = punteggio / totale × 10, prima con due decimali e poi arrotondato al mezzo voto. Il **voto minimo** (predefinito 2) si imposta nei dati generali, in due modi:
   - *Soglia*: un voto calcolato sotto il minimo diventa il minimo (60 % dei punti = 6).
   - *Scala*: 0 punti = voto minimo, punteggio pieno = 10. Con minimo 3, voto = 3 + punteggio / totale × 7.
 - Il **punteggio totale** non si imposta: è la somma dei massimi degli indicatori (più le eventuali correzioni) e dei punti delle domande chiuse.
-- **Versioni** (DSA, NAI, PEI…): ogni domanda da valutare e ogni domanda chiusa mantengono il punteggio che hanno nella standard. Il totale della versione è la somma di quello che contiene, e il voto si calcola su quel totale.
+- **Versioni** (DSA, NAI, PEI…): ogni domanda da valutare e ogni domanda chiusa mantengono il punteggio che hanno nella standard. Il totale della versione è la somma di quello che contiene, e il voto si calcola su quel totale. Per le domande chiuse ogni versione può avere un numero diverso di risposte singole (anche maggiore), scegliere quali risposte multiple della verifica base includere e aggiungerne di proprie.
+- Dalla valutazione, **Modifica verifica** apre la verifica nell'editor; *Applica alla valutazione e torna* aggiorna la valutazione mantenendo i punteggi già inseriti.
 
 ## Pubblicazione su GitHub Pages
 

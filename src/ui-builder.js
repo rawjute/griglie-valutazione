@@ -10,7 +10,7 @@ function Builder() {
     { id: 'livelli', label: 'Livelli predefiniti' },
     { id: 'indicatori', label: 'Indicatori', badge: t.indicatori.length || null },
     { id: 'esercizi', label: 'Domande da valutare', badge: t.esercizi.length || null, badgeKind: stdWarn.length ? 'warn' : '' },
-    { id: 'chiuse', label: 'Domande chiuse', badge: t.chiuse.attive ? t.chiuse.domande.length : null },
+    { id: 'chiuse', label: 'Domande chiuse', badge: t.chiuse.attive ? Calc.closed(t, 'std').items.length : null },
     { id: 'versioni', label: 'Versioni', badge: t.versioni.length || null },
     { id: 'griglia', label: 'Griglia ed export' }
   ];
@@ -21,17 +21,24 @@ function Builder() {
   return html`<div class="page">
     <div class="page-head">
       <div>
-        <div class="eyebrow">Creazione verifica</div>
+        <div class="eyebrow">${S.returnToSession ? 'Modifica della verifica della valutazione' + (S.ses && S.ses.classe ? ' · classe ' + S.ses.classe : '') : 'Creazione verifica'}</div>
         <h1>${Model.templateTitle(t)}</h1>
         <div class=${'small ' + (S.tplDirty ? 'save-pending' : 'muted')}>${S.tplDirty ? 'Modifiche non ancora scaricate in JSON' : 'Salvata (JSON scaricato)'}</div>
       </div>
-      <div class="actions">
+      ${S.returnToSession ? html`<div class="actions">
+        <button class="btn primary" title="I punteggi già inseriti restano" onClick=${() => backToSession(true)}>Applica alla valutazione e torna</button>
+        <button class="btn" onClick=${saveTemplate}>Scarica JSON della verifica</button>
+        <button class="btn" onClick=${async () => {
+          if (S.tplDirty && !(await ask('Tornare alla valutazione senza applicare le modifiche alla verifica?', 'Torna senza applicare'))) return;
+          backToSession(false);
+        }}>Annulla</button>
+      </div>` : html`<div class="actions">
         <button class="btn primary" onClick=${saveTemplate}>Salva (scarica JSON)</button>
         <button class="btn" onClick=${async () => {
           if (S.tplDirty && !(await ask('La verifica ha modifiche non salvate. La valutazione userà la versione attuale. Continuare?', 'Continua'))) return;
           startSession(U.clone(t));
         }}>Valuta una classe →</button>
-      </div>
+      </div>`}
     </div>
     <${Tabs} items=${tabs} value=${S.builderTab} onChange=${v => { S.builderTab = v; refresh(); }} />
     <div class="panel"><${body} t=${t} /></div>
@@ -286,63 +293,51 @@ function MatrixView({ t, vId }) {
 }
 
 /* ---------------- Domande chiuse ---------------- */
+
+/** Tabella delle risposte multiple (DM): nome, parti, punti. Usata nella verifica e nelle versioni. */
+function MultipleTable({ list }) {
+  if (!list.length) return null;
+  return html`<table class="tbl compact" style="max-width:520px">
+    <thead><tr><th>Domanda</th><th>Parti</th><th>Punti</th><th></th></tr></thead>
+    <tbody>${list.map((q, i) => html`<tr key=${q.id}>
+      <td><${TextInput} value=${q.nome} onInput=${v => { q.nome = v; changedTpl(); }} /></td>
+      <td><${NumInput} value=${Calc.partsOf(q)} min=${1} width="60px" onChange=${v => { q.parti = Math.max(1, Math.round(v || 1)); delete q.coppie; changedTpl(); }} /></td>
+      <td><${NumInput} value=${q.punti} min=${0} width="70px" onChange=${v => { q.punti = v || 0; changedTpl(); }} /></td>
+      <td><${IconBtn} icon="✕" title="Elimina" onClick=${() => { list.splice(i, 1); changedTpl(); }} /></td>
+    </tr>`)}</tbody>
+  </table>`;
+}
+
 function BChiuse({ t }) {
   const c = t.chiuse;
-  const [n, setN] = useState(10);
-  const [pts, setPts] = useState(1);
   const C = Calc.closed(t, 'std');
+  const s = c.singole;
   return html`
     <label class="check"><input type="checkbox" checked=${c.attive} onChange=${e => { c.attive = e.target.checked; changedTpl(); }} /> La verifica contiene domande a risposta chiusa</label>
     ${c.attive ? html`
       <p class="muted">Le domande chiuse formano un blocco a sé: il loro punteggio si somma a quello delle domande da valutare con la griglia.
         Punteggio totale ${U.fmt(Calc.total(t, 'std'))} = domande da valutare ${U.fmt(Calc.manualTotal(t, 'std'))} + domande chiuse ${U.fmt(C.max)}.</p>
-      <div class="card row gap wrap">
-        <span>Genera</span><${NumInput} value=${n} min=${1} width="60px" onChange=${v => setN(Math.max(1, Math.round(v || 1)))} />
-        <span>domande a risposta singola (DS) da</span><${NumInput} value=${pts} min=${0} width="60px" onChange=${v => setPts(v || 0)} /><span>punti</span>
-        <button class="btn" onClick=${async () => {
-          const multiple = c.domande.filter(q => Calc.isComposite(q));
-          if (c.domande.length > multiple.length && !(await ask('Sostituire le domande a risposta singola esistenti? Quelle a risposta multipla restano.', 'Sostituisci'))) return;
-          c.domande = Array.from({ length: n }, (_, k) => ({ id: U.uid('q'), nome: 'DS' + (k + 1), tipo: 'singola', punti: pts })).concat(multiple);
-          changedTpl();
-        }}>Genera</button>
+
+      <h3>Risposte singole (DS)</h3>
+      <div class="row gap wrap">
+        <${NumInput} value=${s.numero} min=${0} width="64px" onChange=${v => { s.numero = Math.max(0, Math.round(v || 0)); changedTpl(); }} />
+        <span>domande da</span>
+        <${NumInput} value=${s.punti} min=${0} width="64px" onChange=${v => { s.punti = v || 0; changedTpl(); }} />
+        <span>punti ciascuna</span>
+        <span class="muted">= ${U.fmt((s.numero || 0) * (U.num(s.punti) || 0))} punti</span>
       </div>
-      <div class="grid3">
-        <${Field} label="Punti per risposta errata" hint="Solo domande a risposta singola. Anche negativo, es. -0,25"><${NumInput} value=${c.errata} width="90px" onChange=${v => { c.errata = v || 0; changedTpl(); }} /><//>
-        <${Field} label="Punti per risposta non data" hint="Solo domande a risposta singola."><${NumInput} value=${c.nonData} width="90px" onChange=${v => { c.nonData = v || 0; changedTpl(); }} /><//>
+      <div class="grid3" style="margin-top:10px">
+        <${Field} label="Punti per risposta errata" hint="Anche negativo, es. -0,25"><${NumInput} value=${c.errata} width="90px" onChange=${v => { c.errata = v || 0; changedTpl(); }} /><//>
+        <${Field} label="Punti per risposta non data"><${NumInput} value=${c.nonData} width="90px" onChange=${v => { c.nonData = v || 0; changedTpl(); }} /><//>
         <label class="check"><input type="checkbox" checked=${c.minimoZero} onChange=${e => { c.minimoZero = e.target.checked; changedTpl(); }} /> Il blocco non scende sotto zero</label>
       </div>
-      <p class="muted small">Prefissi automatici: <b>DS</b> risposta singola, <b>DM</b> risposta multipla (la numerazione si aggiorna da sola; i nomi scritti a mano restano).
-        Le domande a <b>risposta multipla</b> (associazioni, cloze, completamenti, più risposte da indicare…) hanno più parti
-        e danno un punteggio parziale: punti × parti corrette / parti totali (es. 4 punti, 1 parte corretta su 4 = 1 punto).
-        In correzione inserisci solo quante parti sono corrette.</p>
-      <table class="tbl compact" style="max-width:640px">
-        <thead><tr><th>Domanda</th><th>Tipo</th><th>Parti</th><th>Punti</th><th></th></tr></thead>
-        <tbody>${c.domande.map((q, i) => html`<tr key=${q.id}>
-          <td><${TextInput} value=${q.nome} onInput=${v => { q.nome = v; changedTpl(); }} /></td>
-          <td><select value=${Calc.isComposite(q) ? 'composta' : 'singola'} onChange=${e => {
-            q.tipo = e.target.value;
-            if (q.tipo === 'composta' && !q.parti) q.parti = Calc.partsOf(q) > 1 ? Calc.partsOf(q) : 4;
-            delete q.coppie;
-            changedTpl();
-          }}>
-            <option value="singola">Risposta singola (DS)</option>
-            <option value="composta">Risposta multipla (DM)</option>
-          </select></td>
-          <td>${Calc.isComposite(q) ? html`<${NumInput} value=${Calc.partsOf(q)} min=${1} width="60px" onChange=${v => { q.parti = Math.max(1, Math.round(v || 1)); delete q.coppie; changedTpl(); }} />` : null}</td>
-          <td><${NumInput} value=${q.punti} min=${0} width="80px" onChange=${v => { q.punti = v || 0; changedTpl(); }} /></td>
-          <td><${IconBtn} icon="✕" title="Elimina" onClick=${() => { c.domande.splice(i, 1); changedTpl(); }} /></td>
-        </tr>`)}</tbody>
-        <tfoot><tr><td colspan="3">Totale</td><td class="c strong">${U.fmt(C.all)}</td><td></td></tr></tfoot>
-      </table>
-      <div class="row gap wrap">
-        <button class="btn" onClick=${() => {
-          const last = [...c.domande].reverse().find(q => !Calc.isComposite(q));
-          c.domande.push({ id: U.uid('q'), nome: 'DS0', tipo: 'singola', punti: last ? last.punti : 1 });
-          changedTpl();
-        }}>+ Aggiungi risposta singola (DS)</button>
-        <button class="btn" onClick=${() => { c.domande.push({ id: U.uid('q'), nome: 'DM0', tipo: 'composta', parti: 4, punti: 4 }); changedTpl(); }}>+ Aggiungi risposta multipla (DM)</button>
-      </div>
-      ${!C.uniform ? html`<div class="alert warn">⚠ Le domande a risposta singola hanno punteggi diversi: in correzione andranno segnate una per una invece che con i soli conteggi.</div>` : null}
+
+      <h3>Risposte multiple (DM)</h3>
+      <p class="muted small">Associazioni, cloze, completamenti, più risposte da indicare…: hanno più parti e danno un punteggio parziale,
+        punti × parti corrette / parti totali (es. 4 punti, 1 parte corretta su 4 = 1 punto). In correzione inserisci solo quante parti sono corrette.</p>
+      <${MultipleTable} list=${c.domande} />
+      <button class="btn" onClick=${() => { c.domande.push(Model.newMultiple()); changedTpl(); }}>+ Aggiungi risposta multipla (DM)</button>
+      <div class="total-line">Totale domande chiuse: ${U.fmt(C.all)} punti</div>
     ` : null}`;
 }
 
@@ -408,16 +403,29 @@ function VersionEditor({ t, v }) {
     </table></div>` : null}
     <button class="btn" onClick=${() => { const e = Model.newExercise(t, t.esercizi.concat(v.aggiunti)); v.aggiunti.push(e); changedTpl(); }}>+ Aggiungi domanda</button>
     <div class="total-line">Totale ${v.nome}: ${U.fmt(Tm + C.max)} punti${C.items.length ? ' (domande da valutare ' + U.fmt(Tm) + ' + domande chiuse ' + U.fmt(C.max) + ')' : ''}</div>
-    ${t.chiuse.attive && t.chiuse.domande.length ? html`
+    ${t.chiuse.attive ? html`
       <h3>Domande chiuse</h3>
-      <p class="muted small">Ogni domanda mantiene il suo punteggio: in questa versione il blocco vale ${U.fmt(C.max)} punti su ${U.fmt(C.all)}.</p>
-      <div class="chips">${t.chiuse.domande.map(q => {
-        const incl = !v.chiuseEscluse.includes(q.id);
-        const it = C.items.find(x => x.id === q.id);
-        return html`<label class=${'chip ' + (incl ? 'on' : '')}><input type="checkbox" checked=${incl}
-          onChange=${e => { v.chiuseEscluse = e.target.checked ? v.chiuseEscluse.filter(x => x !== q.id) : v.chiuseEscluse.concat(q.id); changedTpl(); }} />
-          ${q.nome}${incl && it ? html` <span class="muted">${U.fmt(it.valore)}</span>` : null}</label>`;
-      })}</div>` : null}
+      <p class="muted small">Ogni domanda mantiene il suo punteggio: in questa versione il blocco vale ${U.fmt(C.max)} punti (verifica base: ${U.fmt(C.all)}).</p>
+      <div class="row gap wrap">
+        <b>Risposte singole (DS)</b>
+        <${NumInput} value=${v.chiuseSingole != null ? v.chiuseSingole : t.chiuse.singole.numero} min=${0} width="64px"
+          onChange=${x => { v.chiuseSingole = x === null ? null : Math.max(0, Math.round(x)); changedTpl(); }} />
+        <span class="muted">domande da ${U.fmt(U.num(t.chiuse.singole.punti) || 0)} ${U.num(t.chiuse.singole.punti) === 1 ? 'punto' : 'punti'}
+          (verifica base: ${t.chiuse.singole.numero || 0}${v.chiuseSingole != null && v.chiuseSingole !== t.chiuse.singole.numero ? '' : ', uguale'})</span>
+        ${v.chiuseSingole != null && v.chiuseSingole !== t.chiuse.singole.numero
+          ? html`<button class="btn small" onClick=${() => { v.chiuseSingole = null; changedTpl(); }}>Come la verifica base</button>` : null}
+      </div>
+      ${t.chiuse.domande.length ? html`
+        <div class="muted small" style="margin-top:10px">Risposte multiple (DM) della verifica base da includere</div>
+        <div class="chips">${t.chiuse.domande.map(q => {
+          const incl = !v.chiuseEscluse.includes(q.id);
+          return html`<label class=${'chip ' + (incl ? 'on' : '')}><input type="checkbox" checked=${incl}
+            onChange=${e => { v.chiuseEscluse = e.target.checked ? v.chiuseEscluse.filter(x => x !== q.id) : v.chiuseEscluse.concat(q.id); changedTpl(); }} />
+            ${q.nome} <span class="muted">${Calc.partsOf(q)} parti · ${U.fmt(U.num(q.punti) || 0)} pt</span></label>`;
+        })}</div>` : null}
+      <div class="muted small" style="margin-top:10px">Risposte multiple (DM) solo di questa versione</div>
+      <${MultipleTable} list=${v.chiuseAggiunte} />
+      <button class="btn small" onClick=${() => { v.chiuseAggiunte.push(Model.newMultiple()); changedTpl(); }}>+ Aggiungi risposta multipla</button>` : null}
     <${Warnings} list=${Calc.warnings(t, v.id)} />
     <${MatrixView} t=${t} vId=${v.id} />
   </div>`;

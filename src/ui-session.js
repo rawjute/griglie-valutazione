@@ -18,6 +18,7 @@ function Session() {
       </div>
       <div class="actions">
         <button class="btn primary" onClick=${saveSession}>Salva (scarica JSON)</button>
+        <button class="btn" title="Apre la verifica nell'editor; i punteggi già inseriti restano" onClick=${editSessionTemplate}>Modifica verifica</button>
       </div>
     </div>
     <${Tabs} value=${S.sesTab} onChange=${v => { S.sesTab = v; refresh(); }} items=${[
@@ -61,9 +62,7 @@ function SClasse({ s }) {
   const replaceTemplate = async obj => {
     if (!obj || obj.tipo !== 'template') { toast('Il file non è una verifica', 'error'); return; }
     if (obj.id !== t.id && !(await ask('Questa verifica ha un identificativo diverso: i punteggi già inseriti potrebbero non corrispondere. Continuare?', 'Continua'))) return;
-    s.template = Model.normalizeTemplate(obj);
-    s.studenti.forEach(st => { if (st.versione !== 'std' && !s.template.versioni.find(v => v.id === st.versione)) st.versione = Model.versionForBes(s.template, st.bes); });
-    changedSes();
+    applyTemplateToSession(s, obj);
     toast('Verifica aggiornata');
   };
 
@@ -76,6 +75,7 @@ function SClasse({ s }) {
       <div class="field"><span class="field-label">Verifica</span>
         <div class="row gap wrap">
           <span class="pill">${vopts.map(o => o.nome).join(' · ')}</span>
+          <button class="btn small" title="Apre la verifica nell'editor; i punteggi già inseriti restano" onClick=${editSessionTemplate}>Modifica verifica</button>
           <button class="btn small" title="Se hai modificato la verifica dopo aver iniziato: i punteggi già inseriti restano"
             onClick=${async () => replaceTemplate(await importJSONFile())}>Sostituisci da JSON</button>
         </div>
@@ -399,7 +399,7 @@ function SRiepilogo({ s }) {
   const valid = rows.filter(r => !r.assente && r.res.iniziato);
   const avg = valid.length ? U.sum(valid, r => r.res.voto) / valid.length : null;
   const suff = valid.filter(r => r.res.votoArr >= 6).length;
-  const hasClosed = t.chiuse.attive && t.chiuse.domande.length;
+  const hasClosed = !!t.chiuse.attive;
   const title = Model.templateTitle(t);
   const base = U.safeName((s.classe ? s.classe + ' - ' : '') + title);
   const present = rows.filter(r => !r.assente);

@@ -39,6 +39,7 @@ const S = {
   tpl: null, tplDirty: false, builderTab: 'generale', editVersion: null, previewVersion: 'std',
   // sessione di valutazione (sesRev / savedRev: modifiche fatte / modifiche già scaricate in JSON)
   ses: null, sesRev: 0, savedRev: 0, saveState: 'idle', sesTab: 'classe', cur: null,
+  returnToSession: false, // la verifica è stata aperta dalla valutazione: l'editor offre il ritorno
   busy: null, toast: null, dialog: null
 };
 
@@ -186,6 +187,35 @@ function startSession(tplObj) {
   refresh();
 }
 
+/**
+ * Sostituisce la verifica di una valutazione (i punteggi già inseriti restano, perché sono
+ * legati agli identificativi di domande e indicatori). Gli studenti assegnati a una versione
+ * che non esiste più tornano alla versione indicata dal loro BES.
+ */
+function applyTemplateToSession(s, tplObj) {
+  s.template = Model.normalizeTemplate(U.clone(tplObj));
+  s.studenti.forEach(st => {
+    if (st.versione !== 'std' && !s.template.versioni.find(v => v.id === st.versione)) st.versione = Model.versionForBes(s.template, st.bes);
+  });
+  changedSes();
+}
+
+/** Dalla valutazione: apre la sua verifica nell'editor, con il ritorno alla valutazione. */
+function editSessionTemplate() {
+  openTemplateObj(U.clone(S.ses.template), true);
+  S.returnToSession = true;
+  refresh();
+}
+
+/** Dall'editor: applica le modifiche alla valutazione aperta e torna alla correzione. */
+function backToSession(apply) {
+  if (apply) applyTemplateToSession(S.ses, S.tpl);
+  S.returnToSession = false;
+  S.view = 'session';
+  refresh();
+  if (apply) toast('Verifica aggiornata nella valutazione');
+}
+
 /** Scarica un file di export. */
 function deliver(blob, name) {
   Files.download(blob, name);
@@ -195,6 +225,7 @@ async function leaveTo(view) {
   if (S.view === 'builder' && S.tplDirty && !(await ask('Ci sono modifiche alla verifica non scaricate in JSON. Uscire comunque? (Resta una bozza nel browser.)', 'Esci'))) return;
   if (S.view === 'session' && S.sesRev !== S.savedRev && !(await ask('La valutazione ha modifiche non scaricate in JSON. Uscire comunque? (Resta una bozza nel browser.)', 'Esci'))) return;
   S.view = view;
+  S.returnToSession = false;
   refresh();
 }
 

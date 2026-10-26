@@ -100,7 +100,9 @@ const Model = {
       livelli: Model.defaultLevels(),
       indicatori: [],
       esercizi: [],
-      chiuse: { attive: false, domande: [], errata: 0, nonData: 0, minimoZero: true },
+      // singole: quante domande a risposta singola (DS) e quanto vale ciascuna;
+      // domande: le domande a risposta multipla (DM), ognuna con nome, parti e punti
+      chiuse: { attive: false, singole: { numero: 0, punti: 1 }, domande: [], errata: 0, nonData: 0, minimoZero: true },
       versioni: [],
       creato: now, modificato: now
     };
@@ -130,17 +132,41 @@ const Model = {
       let j = k;
       (v.aggiunti || []).forEach(e => { j++; if (Model.AUTO_DV.test(String(e.nome).trim())) e.nome = 'DV' + j; });
     });
-    let s = 0, m = 0;
-    ((t.chiuse && t.chiuse.domande) || []).forEach(q => {
-      const multi = q.tipo === 'composta' || q.tipo === 'associazione';
-      if (multi) m++; else s++;
-      if (Model.AUTO_CLOSED.test(String(q.nome).trim())) q.nome = (multi ? 'DM' + m : 'DS' + s);
+    // le multiple aggiunte in una versione continuano la numerazione di quelle della verifica base
+    let m = 0;
+    ((t.chiuse && t.chiuse.domande) || []).forEach(q => { m++; if (Model.AUTO_CLOSED.test(String(q.nome).trim())) q.nome = 'DM' + m; });
+    (t.versioni || []).forEach(v => {
+      let j = m;
+      (v.chiuseAggiunte || []).forEach(q => { j++; if (Model.AUTO_CLOSED.test(String(q.nome).trim())) q.nome = 'DM' + j; });
     });
     return t;
   },
 
+  newMultiple() { return { id: U.uid('q'), nome: 'DM0', tipo: 'composta', parti: 4, punti: 4 }; },
+
+  /**
+   * Converte le domande chiuse del formato precedente (ogni risposta singola elencata con
+   * il suo nome) nel formato attuale: numero di singole + punti, e solo le multiple in elenco.
+   * Restituisce gli id delle singole eliminate (servono per convertire le valutazioni).
+   */
+  migrateClosed(chiuse) {
+    const isMulti = q => q.tipo === 'composta' || q.tipo === 'associazione';
+    const old = (chiuse.domande || []).filter(q => !isMulti(q));
+    if (!old.length) return [];
+    if (!chiuse.singole || !chiuse.singole.numero) {
+      chiuse.singole = { numero: old.length, punti: U.num(old[0].punti) || 0 };
+    }
+    chiuse.domande = chiuse.domande.filter(isMulti);
+    return old.map(q => q.id);
+  },
+
   newVersion(tipo) {
-    return { id: U.uid('ver'), nome: tipo === 'ALTRO' ? 'Personalizzata' : tipo, tipo, esclusi: [], testi: {}, adj: {}, aggiunti: [], chiuseEscluse: [] };
+    return {
+      id: U.uid('ver'), nome: tipo === 'ALTRO' ? 'Personalizzata' : tipo, tipo, esclusi: [], testi: {}, adj: {}, aggiunti: [],
+      chiuseSingole: null,   // numero di risposte singole in questa versione (null = come la verifica base)
+      chiuseEscluse: [],     // risposte multiple della verifica base non incluse
+      chiuseAggiunte: []     // risposte multiple solo di questa versione
+    };
   },
 
   newSession(template, templateFileId) {
@@ -161,7 +187,18 @@ const Model = {
   normalizeTemplate(t) {
     const base = Model.newTemplate();
     const out = Object.assign(base, t);
-    out.chiuse = Object.assign(Model.newTemplate().chiuse, t.chiuse || {});
+    out.chiuse = Object.assign(Model.newTemplate().chiuse, U.clone(t.chiuse || {}));
+    const oldSingle = Model.migrateClosed(out.chiuse);
+    out.versioni = (t.versioni || []).map(v => {
+      const nv = Object.assign(Model.newVersion(v.tipo || 'ALTRO'), U.clone(v));
+      // formato precedente: le singole escluse in una versione diventano un numero minore
+      if (oldSingle.length && nv.chiuseSingole == null) {
+        const tolte = (nv.chiuseEscluse || []).filter(id => oldSingle.includes(id)).length;
+        if (tolte) nv.chiuseSingole = Math.max(0, oldSingle.length - tolte);
+      }
+      nv.chiuseEscluse = (nv.chiuseEscluse || []).filter(id => !oldSingle.includes(id));
+      return nv;
+    });
     delete out.totale; // il totale ora si ricava dagli indicatori e dalle domande chiuse
     const oldFormat = l => l && l.length && l[0].min !== undefined && l[0].max === undefined;
     const tplLevels = t.livelli && t.livelli.length ? t.livelli : Model.defaultLevels();
@@ -177,14 +214,25 @@ const Model = {
       return ind;
     });
     out.esercizi = (t.esercizi || []).map(e => Object.assign({ testo: '', indicatori: [], bias: 0 }, e));
-    out.versioni = (t.versioni || []).map(v => Object.assign(Model.newVersion(v.tipo || 'ALTRO'), v));
     return Model.renumber(out);
   },
 
   normalizeSession(s) {
     const out = Object.assign(Model.newSession(Model.newTemplate()), s);
+    // formato precedente: risposte singole segnate una per una -> conteggi
+    const isMulti = q => q.tipo === 'composta' || q.tipo === 'associazione';
+    const oldSingle = (((s.template || {}).chiuse || {}).domande || []).filter(q => !isMulti(q)).map(q => q.id);
     out.template = Model.normalizeTemplate(s.template || {});
-    out.studenti = (s.studenti || []).map(st => Object.assign(Model.newStudent(), st));
+    out.studenti = (s.studenti || []).map(st => {
+      const r = Object.assign(Model.newStudent(), st);
+      const k = r.chiuseConteggi || {};
+      if (oldSingle.length && k.C == null && k.E == null && k.N == null && r.chiuse && Object.keys(r.chiuse).length) {
+        const c = { C: 0, E: 0, N: 0 };
+        oldSingle.forEach(id => { const a = r.chiuse[id]; if (c[a] !== undefined) c[a]++; });
+        r.chiuseConteggi = c;
+      }
+      return r;
+    });
     return out;
   },
 
@@ -296,19 +344,20 @@ const Calc = {
    * cloze, completamenti…), con punteggio parziale proporzionale alle parti corrette.
    */
   closed(t, vId) {
-    if (!t.chiuse.attive || !t.chiuse.domande.length) return { items: [], singole: [], composte: [], max: 0, all: 0, uniform: true };
-    const all = U.sum(t.chiuse.domande, q => U.num(q.punti) || 0);
+    const c = t.chiuse;
+    if (!c.attive) return { items: [], singole: [], composte: [], max: 0, all: 0, uniform: true };
     const v = Calc.version(t, vId);
-    const incl = t.chiuse.domande.filter(q => !v || !v.chiuseEscluse.includes(q.id));
-    const items = incl.map(q => Object.assign({}, q, {
-      valore: U.num(q.punti) || 0,
-      tipo: Calc.isComposite(q) ? 'composta' : 'singola',
-      parti: Calc.partsOf(q)
-    }));
-    const singole = items.filter(q => q.tipo === 'singola');
-    const composte = items.filter(q => q.tipo === 'composta');
-    const uniform = singole.every(q => Math.abs(q.valore - singole[0].valore) < 1e-9);
-    return { items, singole, composte, max: U.sum(items, q => q.valore), all, uniform };
+    const val = U.num(c.singole && c.singole.punti) || 0;
+    const nBase = Math.max(0, Math.round(U.num(c.singole && c.singole.numero) || 0));
+    const n = v && v.chiuseSingole != null ? Math.max(0, Math.round(U.num(v.chiuseSingole) || 0)) : nBase;
+    // le singole non hanno un nome proprio: si contano soltanto (DS1..DSn)
+    const singole = Array.from({ length: n }, (_, k) => ({ id: 'ds' + (k + 1), nome: 'DS' + (k + 1), tipo: 'singola', valore: val }));
+    const multi = q => Object.assign({}, q, { valore: U.num(q.punti) || 0, tipo: 'composta', parti: Calc.partsOf(q) });
+    const composte = c.domande.filter(q => !v || !v.chiuseEscluse.includes(q.id)).map(multi)
+      .concat(v ? (v.chiuseAggiunte || []).map(multi) : []);
+    const items = singole.concat(composte);
+    const all = nBase * val + U.sum(c.domande, q => U.num(q.punti) || 0);
+    return { items, singole, composte, max: U.sum(items, q => q.valore), all, uniform: true };
   },
 
   /** Domanda a risposta composta ('associazione' è il nome usato nelle prime versioni dell'app). */
