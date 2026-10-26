@@ -1086,9 +1086,10 @@ const Grid = {
       totManual: M.Tm,
       res,
       total: res ? U.fmt(res.totale) + ' / ' + U.fmt(res.max) : U.fmt(M.Tm + C.max),
-      // voto finale (grande, nell'ultima colonna a destra) e dettaglio del calcolo accanto
+      // nell'ultima colonna a destra: prima il voto calcolato, sotto il voto finale in evidenza
+      votoCalcLabel: res ? 'Voto calcolato' : 'Voto calcolato: ' + Calc.votoRule(t, M.Tm + C.max),
+      votoCalc: res ? U.fmtFixed(res.voto, 2) : '',
       voto: res ? U.fmt(res.votoArr, 1) : '',
-      votoDettaglio: res ? 'voto calcolato ' + U.fmtFixed(res.voto, 2) + ', arrotondato al mezzo voto' : Calc.votoRule(t, M.Tm + C.max),
       note: showNote ? t.notaPiede : '',
       info: stu ? [['Alunno', U.studentName(stu)], ['Classe', (ctx && ctx.classe) || ''], ['Data', U.dateIT(stu.data || (ctx && ctx.data))]] : null
     };
@@ -1107,10 +1108,10 @@ const Grid = {
 .gv-grid .gv-ns{background:#fdecea;text-align:center;color:#a33}
 .gv-grid .gv-foot td{background:#f6f8fb;font-weight:600}
 .gv-grid .gv-total td{background:#dfe7f3;font-weight:700}
-.gv-grid .gv-voto td{border:2px solid #1f3d73}
-.gv-grid .gv-voto-label{text-align:right;font-size:16px;font-weight:800;letter-spacing:.06em;background:#dfe7f3}
-.gv-grid .gv-voto-det{font-size:11px;font-weight:400;letter-spacing:0;color:#444;margin-right:14px}
-.gv-grid .gv-voto-val{text-align:center;font-size:28px;font-weight:800;min-width:64px;height:44px;background:#1f3d73;color:#fff}
+.gv-grid .gv-calc td{background:#eef2f8;text-align:right}
+.gv-grid .gv-calc .gv-voto-val{text-align:center}
+.gv-grid .gv-voto-label{text-align:right;font-size:14px;font-weight:800;letter-spacing:.05em;background:#dfe7f3}
+.gv-grid .gv-voto .gv-voto-val{text-align:center;font-size:17px;font-weight:800;min-width:52px;background:#1f3d73;color:#fff;border:2px solid #1f3d73}
 .gv-grid .gv-note{font-style:italic;font-size:11px;border:none;padding-top:8px}
 .gv-info{margin-top:10px;font:13px "Segoe UI",Arial,sans-serif;display:flex;gap:28px}
 .gv-info b{font-weight:600}
@@ -1149,8 +1150,8 @@ const Grid = {
     if (d.student) h += foot('Punteggio ottenuto', d.cols.map(c => c.nonSvolto ? 'N.S.' : U.fmt(c.punti)), U.fmt(d.res.manuale));
     if (d.closedLine) h += '<tr class="gv-foot"><td colspan="5">' + e(d.closedLine.label) + '</td><td colspan="' + n + '">' + e(d.closedLine.text) + '</td><td class="c">' + e(d.closedLine.value) + '</td></tr>';
     h += '<tr class="gv-total"><td colspan="5">PUNTEGGIO TOTALE</td><td colspan="' + n + '"></td><td class="c">' + e(d.total) + '</td></tr>';
-    h += '<tr class="gv-voto"><td colspan="' + (5 + n) + '" class="gv-voto-label"><span class="gv-voto-det">' + e(d.votoDettaglio) + '</span>VOTO</td>' +
-      '<td class="gv-voto-val">' + e(d.voto) + '</td></tr>';
+    h += '<tr class="gv-calc"><td colspan="' + (5 + n) + '">' + e(d.votoCalcLabel) + '</td><td class="gv-voto-val">' + e(d.votoCalc) + '</td></tr>';
+    h += '<tr class="gv-voto"><td colspan="' + (5 + n) + '" class="gv-voto-label">VOTO</td><td class="gv-voto-val">' + e(d.voto) + '</td></tr>';
     if (d.note) h += '<tr><td class="gv-note" colspan="' + width + '">' + e(d.note) + '</td></tr>';
     h += '</tbody></table>';
     if (d.info) h += '<div class="gv-info">' + d.info.map(([k, v]) => '<div><b>' + e(k) + ':</b> ' + e(v) + '</div>').join('') + '</div>';
@@ -1231,8 +1232,12 @@ const Grid = {
       { content: d.total, styles: { halign: 'center', fontStyle: 'bold', fillColor: blue } }
     ]);
     body.push([
-      { content: d.votoDettaglio + '      VOTO', colSpan: 5 + n, styles: { halign: 'right', valign: 'middle', fontStyle: 'bold', fontSize: fs + 4, fillColor: blue, minCellHeight: 13 } },
-      { content: d.voto, styles: { halign: 'center', valign: 'middle', fontStyle: 'bold', fontSize: 20, fillColor: [31, 61, 115], textColor: [255, 255, 255], lineWidth: 0.6, lineColor: [31, 61, 115] } }
+      { content: d.votoCalcLabel, colSpan: 5 + n, styles: { halign: 'right', fillColor: pale } },
+      { content: d.votoCalc, styles: { halign: 'center', fillColor: pale } }
+    ]);
+    body.push([
+      { content: 'VOTO', colSpan: 5 + n, styles: { halign: 'right', valign: 'middle', fontStyle: 'bold', fontSize: fs + 3, fillColor: blue, minCellHeight: 8 } },
+      { content: d.voto, styles: { halign: 'center', valign: 'middle', fontStyle: 'bold', fontSize: 12, fillColor: [31, 61, 115], textColor: [255, 255, 255] } }
     ]);
 
     doc.setFont('helvetica', 'bold');
@@ -1360,14 +1365,19 @@ const Grid = {
     };
     if (d.closedLine) spanRow(d.closedLine.label, d.closedLine.text, d.closedLine.value, PALE);
     spanRow('PUNTEGGIO TOTALE', '', d.total, BLUE);
-    // voto finale: etichetta allineata a destra e valore grande nell'ultima colonna
+    // ultima colonna: voto calcolato e, sotto, il voto finale in evidenza
     ws.mergeCells(r, 1, r, lastCol - 1);
-    const vl = set(r, 1, d.votoDettaglio + '      VOTO', { fill: BLUE, align: { horizontal: 'right' } });
-    vl.font = { bold: true, size: 14 };
+    set(r, 1, d.votoCalcLabel, { fill: PALE, align: { horizontal: 'right' } });
+    for (let c = 2; c < lastCol; c++) set(r, c, null, { fill: PALE });
+    set(r, lastCol, numOrText(d.votoCalc), { fill: PALE, align: center });
+    r++;
+    ws.mergeCells(r, 1, r, lastCol - 1);
+    const vl = set(r, 1, 'VOTO', { fill: BLUE, align: { horizontal: 'right' } });
+    vl.font = { bold: true, size: 12 };
     for (let c = 2; c < lastCol; c++) set(r, c, null, { fill: BLUE });
     const vv = set(r, lastCol, numOrText(d.voto), { fill: 'FF1F3D73', align: center });
-    vv.font = { bold: true, size: 22, color: { argb: 'FFFFFFFF' } };
-    ws.getRow(r).height = 34;
+    vv.font = { bold: true, size: 14, color: { argb: 'FFFFFFFF' } };
+    ws.getRow(r).height = 22;
     r++;
     if (d.note) { r++; ws.mergeCells(r, 1, r, lastCol); ws.getCell(r, 1).value = d.note; ws.getCell(r, 1).font = { italic: true, size: 9 }; r++; }
     if (d.info) {
