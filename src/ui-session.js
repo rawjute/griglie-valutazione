@@ -273,7 +273,7 @@ function StudentEval({ s, st, sorted }) {
     if (v === null) delete st.punteggi[exId][indId]; else st.punteggi[exId][indId] = v;
     changedSes();
   };
-  const fileBase = U.safeName((s.classe ? s.classe + ' - ' : '') + U.studentName(st) + ' - ' + (t.argomento || t.materia || 'verifica'));
+  const fileBase = Model.studentFileBase(s, st);
   const nInd = M.used.length;
   const onKey = e => {
     if (e.key === 'Enter') { e.preventDefault(); focusNext(e, e.shiftKey ? -1 : 1); return; }
@@ -400,8 +400,7 @@ function SRiepilogo({ s }) {
   const avg = valid.length ? U.sum(valid, r => r.res.voto) / valid.length : null;
   const suff = valid.filter(r => r.res.votoArr >= 6).length;
   const hasClosed = !!t.chiuse.attive;
-  const title = Model.templateTitle(t);
-  const base = U.safeName((s.classe ? s.classe + ' - ' : '') + title);
+  const base = Model.classFileBase(s);
   const present = rows.filter(r => !r.assente);
   const incomplete = present.filter(r => !r.res.completo).length;
 
@@ -411,8 +410,8 @@ function SRiepilogo({ s }) {
     const zip = new JSZip();
     const used = new Set();
     for (const r of present) {
-      let name = U.safeName(U.studentName(r.st) || 'studente');
-      for (let k = 2; used.has(name.toLowerCase()); k++) name = U.safeName(U.studentName(r.st)) + ' (' + k + ')';
+      let name = Model.studentFileBase(s, r.st);
+      for (let k = 2; used.has(name.toLowerCase()); k++) name = Model.studentFileBase(s, r.st) + ' (' + k + ')';
       used.add(name.toLowerCase());
       zip.file(name + '.pdf', await Grid.pdf([Grid.data(t, r.st.versione, r.st, s)]));
     }

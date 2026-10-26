@@ -256,6 +256,21 @@ const Model = {
 
   templateFileName(t) { return U.safeName(Model.templateTitle(t)) + '.json'; },
 
+  /** Data per i nomi dei file: gg-mm-aaaa (la barra non è ammessa nei nomi). */
+  fileDate(iso) { return U.dateIT(iso).replace(/\//g, '-'); },
+
+  testName(t) { return t.argomento || t.materia || 'verifica'; },
+
+  /** Export di uno studente: "Cognome Nome - Classe - Data - Verifica". */
+  studentFileBase(s, st) {
+    return U.safeName([U.studentName(st) || 'studente', s.classe, Model.fileDate(st.data || s.data), Model.testName(s.template)].filter(Boolean).join(' - '));
+  },
+
+  /** Export di tutta la classe: "Classe - Data - Verifica". */
+  classFileBase(s) {
+    return U.safeName([s.classe || 'classe', Model.fileDate(s.data), Model.testName(s.template)].filter(Boolean).join(' - '));
+  },
+
   sessionFileName(s) {
     return U.safeName([s.classe || 'classe', s.template.argomento || s.template.materia, s.data].filter(Boolean).join(' - ')) + '.json';
   }
