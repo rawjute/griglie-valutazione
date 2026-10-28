@@ -290,6 +290,13 @@ main { padding: 20px; max-width: 1500px; margin: 0 auto; }
   .student-list { position: static; max-height: 220px; }
 }
 
+/* ---------- importazione da Moodle ---------- */
+.modal.wide { max-width: 980px; max-height: calc(100vh - 40px); overflow: auto; }
+.moodle-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+.moodle-scroll { max-height: 46vh; overflow: auto; }
+.tbl tr.unmatched td { background: var(--warn-soft); }
+@media (max-width: 900px) { .moodle-cols { grid-template-columns: 1fr; } }
+
 </style>
   <script src="https://cdn.jsdelivr.net/npm/htm@3.1.1/preact/standalone.umd.js"></script>
 </head>
@@ -1522,7 +1529,8 @@ const S = {
   // sessione di valutazione (sesRev / savedRev: modifiche fatte / modifiche già scaricate in JSON)
   ses: null, sesRev: 0, savedRev: 0, saveState: 'idle', sesTab: 'classe', cur: null,
   returnToSession: false, // la verifica è stata aperta dalla valutazione: l'editor offre il ritorno
-  busy: null, toast: null, dialog: null
+  busy: null, toast: null, dialog: null,
+  moodle: null // importazione da Moodle in corso (finestra aperta)
 };
 
 let _bump = () => {};
@@ -2253,6 +2261,121 @@ function BGriglia({ t }) {
     </div>`;
 }
 
+// ---- moodle.js ----
+/* =====================================================================
+ * moodle.js — importazione delle domande chiuse dal report "Valutazioni"
+ * di un quiz Moodle (CSV o Excel)
+ *
+ * Colonne usate: Cognome, Nome e una colonna per domanda con il punteggio
+ * massimo nell'intestazione ("D. 3 /1,00" in italiano, "Q. 3 /1.00" in inglese).
+ * Nelle celle: punteggio ottenuto; "-" (o vuoto) = domanda non data.
+ * ===================================================================== */
+
+const Moodle = {
+  /** Testo senza accenti, minuscolo, con spazi singoli: per confrontare i nomi. */
+  key(s) {
+    return String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+  },
+
+  /** Valore di una cella: numero, oppure null se la domanda non è stata data o valutata. */
+  value(v) {
+    const s = String(v === undefined || v === null ? '' : v).trim();
+    if (!s || s === '-' || s === '–') return null;
+    return U.num(s);
+  },
+
+  /**
+   * Righe del file -> { questions: [{ key, label, max, col }], records: [{ cognome, nome, values: { key: num|null } }] }.
+   * Lancia un errore con un messaggio comprensibile se il file non è un report Valutazioni.
+   */
+  parse(rows) {
+    rows = (rows || []).filter(r => r && r.some(c => String(c).trim()));
+    const hi = rows.findIndex(r => r.some(c => /^(cognome|surname|last name)$/i.test(String(c).trim())));
+    if (hi < 0) throw new Error('Non trovo la colonna «Cognome»: serve il report «Valutazioni» del quiz scaricato da Moodle.');
+    const head = rows[hi].map(c => String(c).trim());
+    const iC = head.findIndex(h => /^(cognome|surname|last name)$/i.test(h));
+    const iN = head.findIndex(h => /^(nome|first name|firstname)$/i.test(h));
+    const questions = [];
+    head.forEach((h, col) => {
+      const m = /^(?:d|q|domanda|question)\.?\s*(\d+)\s*\/\s*([\d.,]+)\s*$/i.exec(h);
+      if (m) questions.push({ key: 'q' + m[1], label: 'D. ' + m[1], num: +m[1], max: U.num(m[2]) || 0, col });
+    });
+    if (!questions.length) throw new Error('Non trovo le colonne delle domande (es. «D. 1 /1,00»): nel report di Moodle va scelto di mostrare i punteggi delle singole domande.');
+    const records = rows.slice(hi + 1).map(r => {
+      const values = {};
+      questions.forEach(q => { values[q.key] = Moodle.value(r[q.col]); });
+      return { cognome: String(r[iC] || '').trim(), nome: iN >= 0 ? String(r[iN] || '').trim() : '', values };
+    }).filter(r => r.cognome && !/^(media|overall|average)/i.test(Moodle.key(r.cognome)));
+    return { questions, records };
+  },
+
+  /**
+   * Proposta di abbinamento domande Moodle -> verifica: { qKey: 'DS' | idRispostaMultipla | '' }.
+   * Le domande in cui qualcuno ha un punteggio parziale vanno alle multiple (in ordine), quelle senza
+   * alcun punteggio (aperte non ancora valutate) su "Ignora", le altre alle singole.
+   */
+  suggest(t, parsed) {
+    const multi = t.chiuse.domande.slice();
+    const map = {};
+    parsed.questions.forEach(q => {
+      // nessun punteggio per nessuno: domanda aperta ancora da valutare ("Da valutare")
+      if (parsed.records.length && parsed.records.every(r => r.values[q.key] === null)) { map[q.key] = ''; return; }
+      const partial = parsed.records.some(r => { const v = r.values[q.key]; return v !== null && v > 1e-9 && v < q.max - 1e-9; });
+      map[q.key] = partial && multi.length ? multi.shift().id : 'DS';
+    });
+    return map;
+  },
+
+  /** Abbina le righe di Moodle agli studenti della valutazione (cognome+nome, anche invertiti). */
+  match(records, studenti) {
+    const byName = new Map();
+    studenti.forEach(st => {
+      byName.set(Moodle.key(st.cognome + ' ' + st.nome), st.id);
+      byName.set(Moodle.key(st.nome + ' ' + st.cognome), st.id);
+    });
+    return records.map(r => byName.get(Moodle.key(r.cognome + ' ' + r.nome)) || '');
+  },
+
+  /**
+   * Applica i risultati. matches[i] = id dello studente per records[i] ('' = salta).
+   * Restituisce { updated, warnings }.
+   */
+  apply(s, parsed, map, matches) {
+    const t = s.template;
+    let updated = 0;
+    const warnings = [];
+    parsed.records.forEach((r, i) => {
+      const st = s.studenti.find(x => x.id === matches[i]);
+      if (!st) return;
+      const C = Calc.closed(t, st.versione);
+      const cnt = { C: 0, E: 0, N: 0 };
+      let nDS = 0;
+      if (!st.chiuseParziali) st.chiuseParziali = {};
+      parsed.questions.forEach(q => {
+        const dest = map[q.key];
+        const v = r.values[q.key];
+        if (dest === 'DS') {
+          nDS++;
+          if (v === null) cnt.N++;
+          else if (q.max > 0 && v >= q.max - 1e-9) cnt.C++;
+          else cnt.E++;
+        } else if (dest) {
+          const dm = C.composte.find(x => x.id === dest);
+          if (!dm) return; // risposta multipla non presente nella versione dello studente
+          const frac = v === null || !(q.max > 0) ? 0 : U.clamp(v / q.max, 0, 1);
+          st.chiuseParziali[dm.id] = Math.round(frac * dm.parti);
+        }
+      });
+      if (nDS) st.chiuseConteggi = { C: cnt.C, E: cnt.E, N: cnt.N, Nauto: false };
+      if (nDS && nDS !== C.singole.length) {
+        warnings.push(U.studentName(st) + ': ' + nDS + ' risposte singole da Moodle, ma la sua versione ne prevede ' + C.singole.length + '.');
+      }
+      updated++;
+    });
+    return { updated, warnings };
+  }
+};
+
 // ---- ui-session.js ----
 /* =====================================================================
  * ui-session.js — valutazione di una classe
@@ -2275,6 +2398,7 @@ function Session() {
       <div class="actions">
         <button class="btn primary" onClick=${saveSession}>Salva (scarica JSON)</button>
         <button class="btn" title="Apre la verifica nell'editor; i punteggi già inseriti restano" onClick=${editSessionTemplate}>Modifica verifica</button>
+        ${t.chiuse.attive ? html`<button class="btn" title="Compila le domande chiuse dal report Valutazioni di un quiz Moodle (CSV o Excel)" onClick=${startMoodleImport}>Importa risposte Moodle</button>` : null}
       </div>
     </div>
     <${Tabs} value=${S.sesTab} onChange=${v => { S.sesTab = v; refresh(); }} items=${[
@@ -2283,6 +2407,7 @@ function Session() {
       { id: 'riepilogo', label: 'Riepilogo ed export' }
     ]} />
     <div class="panel"><${body} s=${s} /></div>
+    ${S.moodle ? html`<${MoodleImport} />` : null}
   </div>`;
 }
 
@@ -2704,6 +2829,83 @@ function SRiepilogo({ s }) {
     <p class="muted small">* griglia incompleta. Clic su una riga per aprire la correzione.</p>`;
 }
 
+/* ---------------- Importazione domande chiuse da Moodle ---------------- */
+async function startMoodleImport() {
+  const f = await Files.pickFile('.csv,.xlsx,.xls,.ods,.txt');
+  if (!f) return;
+  await withBusy('Leggo il file di Moodle…', async () => {
+    const parsed = Moodle.parse(await ClassList.parseFile(f));
+    const s = S.ses;
+    S.moodle = { fileName: f.name, parsed, map: Moodle.suggest(s.template, parsed), matches: Moodle.match(parsed.records, s.studenti), result: null };
+  });
+}
+
+function MoodleImport() {
+  const m = S.moodle;
+  const s = S.ses;
+  const t = s.template;
+  const close = () => { S.moodle = null; refresh(); };
+  if (m.result) {
+    return html`<div class="modal-back"><div class="modal wide" role="dialog" aria-modal="true">
+      <h2>Domande chiuse compilate</h2>
+      <p>Aggiornati ${m.result.updated} studenti con le risposte di Moodle.</p>
+      ${m.result.warnings.length ? html`<div class="alert warn">${m.result.warnings.map(w => html`<div>⚠ ${w}</div>`)}</div>` : null}
+      <div class="row gap end-row"><button class="btn primary" onClick=${close}>Chiudi</button></div>
+    </div></div>`;
+  }
+  // destinazioni possibili: risposte singole, risposte multiple della verifica base e delle versioni
+  const multi = t.chiuse.domande.map(q => ({ id: q.id, nome: q.nome }))
+    .concat(...t.versioni.map(v => (v.chiuseAggiunte || []).map(q => ({ id: q.id, nome: q.nome + ' (' + v.nome + ')' }))));
+  const nDS = m.parsed.questions.filter(q => m.map[q.key] === 'DS').length;
+  const nMatched = m.matches.filter(Boolean).length;
+  const sorted = [...s.studenti].sort(U.compareStudents);
+  const apply = () => {
+    m.result = Moodle.apply(s, m.parsed, m.map, m.matches);
+    changedSes();
+  };
+  return html`<div class="modal-back"><div class="modal wide" role="dialog" aria-modal="true">
+    <div class="row gap"><h2 class="grow">Importa risposte da Moodle</h2><${IconBtn} icon="✕" title="Chiudi" onClick=${close} /></div>
+    <p class="muted small">${m.fileName} · ${m.parsed.questions.length} domande · ${m.parsed.records.length} studenti.
+      Per gli studenti abbinati i dati delle domande chiuse vengono sostituiti.</p>
+    <div class="moodle-cols">
+      <div>
+        <h3>Domande</h3>
+        <p class="muted small">Risposte singole: ${nDS} (la verifica ne prevede ${Calc.closed(t, 'std').singole.length}).
+          Le domande aperte di Moodle vanno su «Ignora».</p>
+        <div class="table-scroll moodle-scroll"><table class="tbl compact">
+          <thead><tr><th>Moodle</th><th>Max</th><th>Nella verifica</th></tr></thead>
+          <tbody>${m.parsed.questions.map(q => html`<tr key=${q.key}>
+            <td>${q.label}</td><td class="c">${U.fmt(q.max)}</td>
+            <td><select value=${m.map[q.key]} onChange=${e => { m.map[q.key] = e.target.value; refresh(); }}>
+              <option value="DS">Risposta singola (DS)</option>
+              ${multi.map(x => html`<option value=${x.id}>${x.nome} (multipla)</option>`)}
+              <option value="">Ignora</option>
+            </select></td>
+          </tr>`)}</tbody>
+        </table></div>
+      </div>
+      <div>
+        <h3>Studenti</h3>
+        <p class="muted small">Riconosciuti ${nMatched} su ${m.parsed.records.length}.${nMatched < m.parsed.records.length ? ' Abbina a mano quelli mancanti o lasciali su «salta».' : ''}</p>
+        <div class="table-scroll moodle-scroll"><table class="tbl compact">
+          <thead><tr><th>Moodle</th><th>Studente</th></tr></thead>
+          <tbody>${m.parsed.records.map((r, i) => html`<tr key=${i} class=${m.matches[i] ? '' : 'unmatched'}>
+            <td>${r.cognome} ${r.nome}</td>
+            <td><select value=${m.matches[i]} onChange=${e => { m.matches[i] = e.target.value; refresh(); }}>
+              <option value="">— salta —</option>
+              ${sorted.map(st => html`<option value=${st.id}>${U.studentName(st)}</option>`)}
+            </select></td>
+          </tr>`)}</tbody>
+        </table></div>
+      </div>
+    </div>
+    <div class="row gap end-row">
+      <button class="btn" onClick=${close}>Annulla</button>
+      <button class="btn primary" disabled=${!nMatched} onClick=${apply}>Compila le domande chiuse (${nMatched} studenti)</button>
+    </div>
+  </div></div>`;
+}
+
 // ---- app.js ----
 /* =====================================================================
  * app.js — home e avvio
@@ -2809,7 +3011,7 @@ window.addEventListener('beforeunload', e => {
 })();
 
 // per il debug dalla console del browser
-window.GV = { S: S, U: U, Model: Model, Calc: Calc, Grid: Grid, Summary: Summary };
+window.GV = { S: S, U: U, Model: Model, Calc: Calc, Grid: Grid, Summary: Summary, Moodle: Moodle };
 })();
 </script>
 </body>

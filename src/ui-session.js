@@ -19,6 +19,7 @@ function Session() {
       <div class="actions">
         <button class="btn primary" onClick=${saveSession}>Salva (scarica JSON)</button>
         <button class="btn" title="Apre la verifica nell'editor; i punteggi già inseriti restano" onClick=${editSessionTemplate}>Modifica verifica</button>
+        ${t.chiuse.attive ? html`<button class="btn" title="Compila le domande chiuse dal report Valutazioni di un quiz Moodle (CSV o Excel)" onClick=${startMoodleImport}>Importa risposte Moodle</button>` : null}
       </div>
     </div>
     <${Tabs} value=${S.sesTab} onChange=${v => { S.sesTab = v; refresh(); }} items=${[
@@ -27,6 +28,7 @@ function Session() {
       { id: 'riepilogo', label: 'Riepilogo ed export' }
     ]} />
     <div class="panel"><${body} s=${s} /></div>
+    ${S.moodle ? html`<${MoodleImport} />` : null}
   </div>`;
 }
 
@@ -446,4 +448,81 @@ function SRiepilogo({ s }) {
     </table>
     </div>
     <p class="muted small">* griglia incompleta. Clic su una riga per aprire la correzione.</p>`;
+}
+
+/* ---------------- Importazione domande chiuse da Moodle ---------------- */
+async function startMoodleImport() {
+  const f = await Files.pickFile('.csv,.xlsx,.xls,.ods,.txt');
+  if (!f) return;
+  await withBusy('Leggo il file di Moodle…', async () => {
+    const parsed = Moodle.parse(await ClassList.parseFile(f));
+    const s = S.ses;
+    S.moodle = { fileName: f.name, parsed, map: Moodle.suggest(s.template, parsed), matches: Moodle.match(parsed.records, s.studenti), result: null };
+  });
+}
+
+function MoodleImport() {
+  const m = S.moodle;
+  const s = S.ses;
+  const t = s.template;
+  const close = () => { S.moodle = null; refresh(); };
+  if (m.result) {
+    return html`<div class="modal-back"><div class="modal wide" role="dialog" aria-modal="true">
+      <h2>Domande chiuse compilate</h2>
+      <p>Aggiornati ${m.result.updated} studenti con le risposte di Moodle.</p>
+      ${m.result.warnings.length ? html`<div class="alert warn">${m.result.warnings.map(w => html`<div>⚠ ${w}</div>`)}</div>` : null}
+      <div class="row gap end-row"><button class="btn primary" onClick=${close}>Chiudi</button></div>
+    </div></div>`;
+  }
+  // destinazioni possibili: risposte singole, risposte multiple della verifica base e delle versioni
+  const multi = t.chiuse.domande.map(q => ({ id: q.id, nome: q.nome }))
+    .concat(...t.versioni.map(v => (v.chiuseAggiunte || []).map(q => ({ id: q.id, nome: q.nome + ' (' + v.nome + ')' }))));
+  const nDS = m.parsed.questions.filter(q => m.map[q.key] === 'DS').length;
+  const nMatched = m.matches.filter(Boolean).length;
+  const sorted = [...s.studenti].sort(U.compareStudents);
+  const apply = () => {
+    m.result = Moodle.apply(s, m.parsed, m.map, m.matches);
+    changedSes();
+  };
+  return html`<div class="modal-back"><div class="modal wide" role="dialog" aria-modal="true">
+    <div class="row gap"><h2 class="grow">Importa risposte da Moodle</h2><${IconBtn} icon="✕" title="Chiudi" onClick=${close} /></div>
+    <p class="muted small">${m.fileName} · ${m.parsed.questions.length} domande · ${m.parsed.records.length} studenti.
+      Per gli studenti abbinati i dati delle domande chiuse vengono sostituiti.</p>
+    <div class="moodle-cols">
+      <div>
+        <h3>Domande</h3>
+        <p class="muted small">Risposte singole: ${nDS} (la verifica ne prevede ${Calc.closed(t, 'std').singole.length}).
+          Le domande aperte di Moodle vanno su «Ignora».</p>
+        <div class="table-scroll moodle-scroll"><table class="tbl compact">
+          <thead><tr><th>Moodle</th><th>Max</th><th>Nella verifica</th></tr></thead>
+          <tbody>${m.parsed.questions.map(q => html`<tr key=${q.key}>
+            <td>${q.label}</td><td class="c">${U.fmt(q.max)}</td>
+            <td><select value=${m.map[q.key]} onChange=${e => { m.map[q.key] = e.target.value; refresh(); }}>
+              <option value="DS">Risposta singola (DS)</option>
+              ${multi.map(x => html`<option value=${x.id}>${x.nome} (multipla)</option>`)}
+              <option value="">Ignora</option>
+            </select></td>
+          </tr>`)}</tbody>
+        </table></div>
+      </div>
+      <div>
+        <h3>Studenti</h3>
+        <p class="muted small">Riconosciuti ${nMatched} su ${m.parsed.records.length}.${nMatched < m.parsed.records.length ? ' Abbina a mano quelli mancanti o lasciali su «salta».' : ''}</p>
+        <div class="table-scroll moodle-scroll"><table class="tbl compact">
+          <thead><tr><th>Moodle</th><th>Studente</th></tr></thead>
+          <tbody>${m.parsed.records.map((r, i) => html`<tr key=${i} class=${m.matches[i] ? '' : 'unmatched'}>
+            <td>${r.cognome} ${r.nome}</td>
+            <td><select value=${m.matches[i]} onChange=${e => { m.matches[i] = e.target.value; refresh(); }}>
+              <option value="">— salta —</option>
+              ${sorted.map(st => html`<option value=${st.id}>${U.studentName(st)}</option>`)}
+            </select></td>
+          </tr>`)}</tbody>
+        </table></div>
+      </div>
+    </div>
+    <div class="row gap end-row">
+      <button class="btn" onClick=${close}>Annulla</button>
+      <button class="btn primary" disabled=${!nMatched} onClick=${apply}>Compila le domande chiuse (${nMatched} studenti)</button>
+    </div>
+  </div></div>`;
 }

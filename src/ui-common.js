@@ -40,7 +40,8 @@ const S = {
   // sessione di valutazione (sesRev / savedRev: modifiche fatte / modifiche già scaricate in JSON)
   ses: null, sesRev: 0, savedRev: 0, saveState: 'idle', sesTab: 'classe', cur: null,
   returnToSession: false, // la verifica è stata aperta dalla valutazione: l'editor offre il ritorno
-  busy: null, toast: null, dialog: null
+  busy: null, toast: null, dialog: null,
+  moodle: null // importazione da Moodle in corso (finestra aperta)
 };
 
 let _bump = () => {};

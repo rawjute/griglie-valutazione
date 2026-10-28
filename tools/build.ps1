@@ -25,7 +25,7 @@ $parts = foreach ($m in [regex]::Matches($htmlText, $localScript)) {
   "// ---- $name ----`n$js"
 }
 $bundle = "`n  <script>`n(function () {`n'use strict';`n" + ($parts -join "`n") +
-  "`n// per il debug dalla console del browser`nwindow.GV = { S: S, U: U, Model: Model, Calc: Calc, Grid: Grid, Summary: Summary };`n})();`n</script>"
+  "`n// per il debug dalla console del browser`nwindow.GV = { S: S, U: U, Model: Model, Calc: Calc, Grid: Grid, Summary: Summary, Moodle: Moodle };`n})();`n</script>"
 $first = $true
 $htmlText = [regex]::Replace($htmlText, $localScript, {
   param($m)

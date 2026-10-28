@@ -21,6 +21,17 @@ Web app per costruire griglie di valutazione per indicatori e usarle per corregg
 - **Lavoro non salvato**: finché non scarichi il JSON, nel browser resta una bozza. Alla riapertura la home propone di riprenderla.
 - **Export**: dalla verifica, la griglia in PDF o HTML; dalla valutazione, XLSX con riepilogo e griglie, un PDF con tutte le griglie oppure uno ZIP con un PDF per studente. Finiscono nella cartella dei download del browser.
 
+## Domande chiuse da Moodle
+
+Se le domande chiuse le hai somministrate con un quiz Moodle, nella valutazione usa **Importa risposte Moodle**:
+
+1. In Moodle apri il quiz → *Risultati* → *Valutazioni* e scarica il report in CSV o Excel. Servono i punteggi delle singole domande: colonne come "D. 1 /1,00".
+2. Carica il file. L'app propone per ogni domanda di Moodle se è una **risposta singola (DS)**, una **risposta multipla** (DM1, DM2…) o da **ignorare**. Le domande con punteggi parziali vengono proposte come multiple, quelle senza nessun punteggio (aperte da valutare) su *Ignora*. Puoi cambiare ogni scelta.
+3. Gli studenti vengono riconosciuti per cognome e nome, senza distinguere maiuscole e accenti. Quelli non riconosciuti puoi abbinarli a mano o saltarli.
+4. *Compila le domande chiuse* riempie i dati degli studenti abbinati:
+   - **risposte singole**: punteggio pieno = corretta, "-" = non data, altro = errata;
+   - **risposte multiple**: parti corrette = punteggio / massimo × numero di parti, arrotondato.
+
 ## Elenchi classe
 
 Un file per classe, CSV o Excel. Il nome del file diventa il nome della classe: `3P.csv` → classe 3P.
