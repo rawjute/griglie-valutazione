@@ -383,15 +383,6 @@ const Grid = {
  * Riepilogo della classe
  * ------------------------------------------------------------------- */
 const Summary = {
-  /** Tutti gli esercizi che compaiono in almeno una versione usata. */
-  columns(s) {
-    const t = s.template;
-    const seen = new Map();
-    t.esercizi.forEach(e => seen.set(e.id, e.nome));
-    t.versioni.forEach(v => v.aggiunti.forEach(e => { if (s.studenti.some(st => st.versione === v.id)) seen.set(e.id, e.nome + ' (' + v.nome + ')'); }));
-    return [...seen.entries()].map(([id, nome]) => ({ id, nome }));
-  },
-
   rows(s) {
     const t = s.template;
     return [...s.studenti].sort(U.compareStudents).map(st => {
@@ -402,37 +393,23 @@ const Summary = {
 
   async xlsx(s, withStudents) {
     const t = s.template;
-    const cols = Summary.columns(s);
     const rows = Summary.rows(s);
-    const hasClosed = !!t.chiuse.attive;
     return Grid.xlsxBlob(wb => {
       const used = new Set();
       const ws = wb.addWorksheet(Grid.sheetName('Riepilogo', used));
-      const header = ['Cognome', 'Nome', 'Data', 'Versione', ...cols.map(c => c.nome)];
-      if (hasClosed) header.push('Domande chiuse');
-      header.push('Punteggio', 'Su', 'Voto', 'Voto arrotondato', 'Stato');
+      const header = ['Studente', 'Data', 'Voto', 'Voto arrotondato'];
       ws.addRow([Model.templateTitle(t) + ' — classe ' + (s.classe || '')]).font = { bold: true, size: 12 };
       const hr = ws.addRow(header);
       hr.font = { bold: true };
       hr.eachCell(c => { c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFDFE7F3' } }; });
       rows.forEach(({ st, res, assente }) => {
-        const line = [st.cognome, st.nome, U.dateIT(st.data || s.data), Model.versionName(t, st.versione)];
-        if (assente) {
-          cols.forEach(() => line.push(''));
-          if (hasClosed) line.push('');
-          line.push('', '', '', '', 'Assente');
-        } else {
-          cols.forEach(c => {
-            const x = res.esercizi[c.id];
-            line.push(!x ? '-' : x.nonSvolto ? 'N.S.' : U.round(x.punti, 2));
-          });
-          if (hasClosed) line.push(U.round(res.chiuse, 2));
-          line.push(U.round(res.totale, 2), U.round(res.max, 2), U.round(res.voto, 2), res.votoArr, res.completo ? 'Completa' : 'Incompleta');
-        }
+        const line = [U.studentName(st), U.dateIT(st.data || s.data)];
+        if (assente) line.push('assente', 'assente');
+        else line.push(U.round(res.voto, 2), res.votoArr);
         ws.addRow(line);
       });
-      ws.columns.forEach((c, i) => { c.width = i < 2 ? 18 : i < 4 ? 12 : 10; });
-      ws.views = [{ state: 'frozen', xSplit: 2, ySplit: 2 }];
+      [30, 12, 10, 17].forEach((w, i) => { ws.getColumn(i + 1).width = w; });
+      ws.views = [{ state: 'frozen', ySplit: 2 }];
       if (withStudents) {
         rows.filter(r => !r.assente).forEach(({ st }) => {
           Grid.xlsxSheet(wb, Grid.sheetName(U.studentName(st), used), Grid.data(t, st.versione, st, s));

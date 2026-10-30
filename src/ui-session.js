@@ -396,12 +396,10 @@ function StudentEval({ s, st, sorted }) {
 /* ---------------- Riepilogo ---------------- */
 function SRiepilogo({ s }) {
   const t = s.template;
-  const cols = Summary.columns(s);
   const rows = Summary.rows(s);
   const valid = rows.filter(r => !r.assente && r.res.iniziato);
   const avg = valid.length ? U.sum(valid, r => r.res.voto) / valid.length : null;
   const suff = valid.filter(r => r.res.votoArr >= 6).length;
-  const hasClosed = !!t.chiuse.attive;
   const base = Model.classFileBase(s);
   const present = rows.filter(r => !r.assente);
   const incomplete = present.filter(r => !r.res.completo).length;
@@ -435,13 +433,10 @@ function SRiepilogo({ s }) {
     </div>
     <div class="table-scroll">
     <table class="tbl compact summary">
-      <thead><tr><th>Studente</th><th>Data</th><th>Versione</th>${cols.map(c => html`<th>${c.nome}</th>`)}${hasClosed ? html`<th>Chiuse</th>` : null}<th>Punteggio</th><th>Voto</th><th>Arr.</th></tr></thead>
+      <thead><tr><th>Studente</th><th>Data</th><th class="c">Voto</th><th class="c">Voto arrotondato</th></tr></thead>
       <tbody>${rows.map(({ st, res, assente }) => html`<tr key=${st.id} class=${assente ? 'dim' : ''} onClick=${() => { S.cur = st.id; S.sesTab = 'correzione'; refresh(); }} style="cursor:pointer">
-        <td>${U.studentName(st)}</td><td>${U.dateIT(st.data || s.data)}</td><td>${Model.versionName(t, st.versione)}</td>
-        ${assente ? html`<td colspan=${cols.length + (hasClosed ? 1 : 0) + 3} class="c muted">assente</td>` : html`
-          ${cols.map(c => { const x = res.esercizi[c.id]; return html`<td class="c">${!x ? '–' : x.nonSvolto ? 'N.S.' : U.fmt(x.punti)}</td>`; })}
-          ${hasClosed ? html`<td class="c">${U.fmt(res.chiuse)}</td>` : null}
-          <td class="c">${U.fmt(res.totale)} / ${U.fmt(res.max)}</td>
+        <td>${U.studentName(st)}</td><td>${U.dateIT(st.data || s.data)}</td>
+        ${assente ? html`<td colspan="2" class="c muted">assente</td>` : html`
           <td class="c">${U.fmtFixed(res.voto, 2)}</td>
           <td class=${'c strong ' + (res.votoArr >= 6 ? 'good' : 'bad')}>${U.fmt(res.votoArr, 1)}${res.completo ? '' : ' *'}</td>`}
       </tr>`)}</tbody>
