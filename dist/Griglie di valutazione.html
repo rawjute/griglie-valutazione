@@ -479,7 +479,8 @@ const Model = {
       id: U.uid('ver'), nome: tipo === 'ALTRO' ? 'Personalizzata' : tipo, tipo, esclusi: [], testi: {}, adj: {}, aggiunti: [],
       chiuseSingole: null,   // numero di risposte singole in questa versione (null = come la verifica base)
       chiuseEscluse: [],     // risposte multiple della verifica base non incluse
-      chiuseAggiunte: []     // risposte multiple solo di questa versione
+      chiuseAggiunte: [],    // risposte multiple solo di questa versione
+      indicatori: {}         // griglia personalizzata: { idIndicatore: { nome, livelli } } (il massimo resta quello base)
     };
   },
 
@@ -511,6 +512,7 @@ const Model = {
         if (tolte) nv.chiuseSingole = Math.max(0, oldSingle.length - tolte);
       }
       nv.chiuseEscluse = (nv.chiuseEscluse || []).filter(id => !oldSingle.includes(id));
+      if (!nv.indicatori || Array.isArray(nv.indicatori)) nv.indicatori = {};
       return nv;
     });
     delete out.totale; // il totale ora si ricava dagli indicatori e dalle domande chiuse
@@ -606,6 +608,17 @@ const Calc = {
   indicator(t, id) { return t.indicatori.find(i => i.id === id); },
 
   /**
+   * L'indicatore come appare in una versione: se la versione ne personalizza la griglia,
+   * nome, livelli e descrittori sono quelli della versione; il massimo resta quello base.
+   */
+  indicatorView(t, vId, ind) {
+    const v = Calc.version(t, vId);
+    const o = v && v.indicatori ? v.indicatori[ind.id] : null;
+    if (!o) return ind;
+    return Object.assign({}, ind, { nome: o.nome || ind.nome, livelli: o.livelli && o.livelli.length ? o.livelli : ind.livelli, personalizzato: true });
+  },
+
+  /**
    * Indicatori raggruppati per sezione, nell'ordine delle sezioni; quelli senza sezione in fondo.
    * Restituisce [{ sezione: {id, nome} | null, inds: [...] }] senza gruppi vuoti.
    */
@@ -624,13 +637,13 @@ const Calc = {
   },
 
   /**
-   * Fasce di punteggio di ogni livello per un indicatore di massimo `max` (dal più alto), anche decimali.
-   * Un livello arriva fino a max% × massimo (incluso) e parte appena sopra il limite del livello inferiore;
-   * il livello più basso parte da 0 (incluso). Es. su 15 punti: Insufficiente "> 4,5 – 6,75".
+   * Fasce di punteggio di ogni livello per un indicatore di massimo `max` (dal più alto).
+   * Un livello arriva fino a max% × massimo (incluso, arrotondato a un decimale) e parte appena sopra
+   * il limite del livello inferiore; il più basso parte da 0. Es. su 15 punti: Insufficiente "> 4,5 – 6,8".
    */
   levelRanges(levels, max) {
     const sorted = Calc.sortedLevels(levels);
-    const tos = sorted.map((l, i) => i === 0 ? max : U.round((U.num(l.max) || 0) / 100 * max, 2));
+    const tos = sorted.map((l, i) => i === 0 ? max : U.round((U.num(l.max) || 0) / 100 * max, 1));
     return sorted.map((l, i) => {
       const last = i === sorted.length - 1;
       const from = last ? 0 : tos[i + 1];
@@ -821,7 +834,8 @@ const Calc = {
     const W = Calc.weights(t, vId);
     const usedIds = new Set();
     exs.forEach(e => Calc.validIndicators(t, e).forEach(id => usedIds.add(id)));
-    const used = t.indicatori.filter(i => usedIds.has(i.id));
+    // con la griglia personalizzata della versione (nomi, livelli e descrittori propri)
+    const used = t.indicatori.filter(i => usedIds.has(i.id)).map(i => Calc.indicatorView(t, vId, i));
     // le quote degli indicatori si calcolano sulla verifica standard: togliere un esercizio
     // in una versione toglie anche la sua parte di indicatori
     const cov = Calc.coverage(t, t.esercizi);
@@ -2308,9 +2322,43 @@ function VersionEditor({ t, v }) {
       <div class="muted small" style="margin-top:10px">Risposte multiple (DM) solo di questa versione</div>
       <${MultipleTable} list=${v.chiuseAggiunte} />
       <button class="btn small" onClick=${() => { v.chiuseAggiunte.push(Model.newMultiple()); changedTpl(); }}>+ Aggiungi risposta multipla</button>` : null}
+    <${VersionGrid} t=${t} v=${v} />
     <${Warnings} list=${Calc.warnings(t, v.id)} />
     <${MatrixView} t=${t} vId=${v.id} />
   </div>`;
+}
+
+/**
+ * Griglia personalizzata di una versione: per ogni indicatore usato si possono cambiare
+ * nome, livelli e descrittori. Il punteggio massimo resta quello della verifica base.
+ */
+function VersionGrid({ t, v }) {
+  const used = Calc.matrix(t, v.id).used;
+  if (!used.length) return null;
+  if (!v.indicatori) v.indicatori = {};
+  return html`
+    <h3>Griglia di questa versione</h3>
+    <p class="muted small">Per ogni indicatore puoi usare la griglia della verifica base oppure personalizzarne nome, livelli e descrittori
+      (es. descrittori semplificati per DSA o NAI). Il punteggio massimo resta quello della verifica base, perché da esso dipendono i pesi delle domande.</p>
+    ${used.map(view => {
+      const base = Calc.indicator(t, view.id);
+      const o = v.indicatori[view.id];
+      const max = U.num(base.max) || 0;
+      return html`<div class="card" key=${view.id}>
+        <div class="row gap wrap">
+          <b class="grow">${base.nome || '(senza nome)'} <span class="muted small">(0 – ${max})</span></b>
+          <label class="check"><input type="checkbox" checked=${!!o} onChange=${e => {
+            if (e.target.checked) v.indicatori[view.id] = { nome: base.nome, livelli: Model.copyLevels(base.livelli, true) };
+            else delete v.indicatori[view.id];
+            changedTpl();
+          }} /> Personalizza per ${v.nome}</label>
+        </div>
+        ${o ? html`
+          <${Field} label="Nome dell'indicatore in questa versione"><${TextInput} value=${o.nome} onInput=${x => { o.nome = x; changedTpl(); }} /><//>
+          <${LevelsEditor} owner=${o} max=${max} withDesc=${true} />
+          ${Calc.levelIssues(o.livelli, max).length ? html`<${Warnings} list=${Calc.levelIssues(o.livelli, max)} />` : null}` : null}
+      </div>`;
+    })}`;
 }
 
 /* ---------------- Griglia ed export ---------------- */
@@ -2780,11 +2828,11 @@ function StudentEval({ s, st, sorted }) {
     return k < 0 ? null : { ind, range: ranges[k], cls: levelClass(ranges.length, k) };
   };
   if (hover) {
-    const ind = t.indicatori.find(i => i.id === hover.indId);
+    const ind = M.used.find(i => i.id === hover.indId);
     const level = ind && ind.livelli.find(l => l.id === hover.levelId);
     if (level) hint = hintFor(ind, level);
   } else if (focus) {
-    const ind = t.indicatori.find(i => i.id === focus.indId);
+    const ind = M.used.find(i => i.id === focus.indId);
     const v = ind && st.punteggi[focus.exId] ? U.num(st.punteggi[focus.exId][ind.id]) : null;
     if (v !== null) hint = hintFor(ind, Calc.levelOf(ind.livelli, U.num(ind.max) || 0, v));
   }

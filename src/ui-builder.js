@@ -460,9 +460,43 @@ function VersionEditor({ t, v }) {
       <div class="muted small" style="margin-top:10px">Risposte multiple (DM) solo di questa versione</div>
       <${MultipleTable} list=${v.chiuseAggiunte} />
       <button class="btn small" onClick=${() => { v.chiuseAggiunte.push(Model.newMultiple()); changedTpl(); }}>+ Aggiungi risposta multipla</button>` : null}
+    <${VersionGrid} t=${t} v=${v} />
     <${Warnings} list=${Calc.warnings(t, v.id)} />
     <${MatrixView} t=${t} vId=${v.id} />
   </div>`;
+}
+
+/**
+ * Griglia personalizzata di una versione: per ogni indicatore usato si possono cambiare
+ * nome, livelli e descrittori. Il punteggio massimo resta quello della verifica base.
+ */
+function VersionGrid({ t, v }) {
+  const used = Calc.matrix(t, v.id).used;
+  if (!used.length) return null;
+  if (!v.indicatori) v.indicatori = {};
+  return html`
+    <h3>Griglia di questa versione</h3>
+    <p class="muted small">Per ogni indicatore puoi usare la griglia della verifica base oppure personalizzarne nome, livelli e descrittori
+      (es. descrittori semplificati per DSA o NAI). Il punteggio massimo resta quello della verifica base, perché da esso dipendono i pesi delle domande.</p>
+    ${used.map(view => {
+      const base = Calc.indicator(t, view.id);
+      const o = v.indicatori[view.id];
+      const max = U.num(base.max) || 0;
+      return html`<div class="card" key=${view.id}>
+        <div class="row gap wrap">
+          <b class="grow">${base.nome || '(senza nome)'} <span class="muted small">(0 – ${max})</span></b>
+          <label class="check"><input type="checkbox" checked=${!!o} onChange=${e => {
+            if (e.target.checked) v.indicatori[view.id] = { nome: base.nome, livelli: Model.copyLevels(base.livelli, true) };
+            else delete v.indicatori[view.id];
+            changedTpl();
+          }} /> Personalizza per ${v.nome}</label>
+        </div>
+        ${o ? html`
+          <${Field} label="Nome dell'indicatore in questa versione"><${TextInput} value=${o.nome} onInput=${x => { o.nome = x; changedTpl(); }} /><//>
+          <${LevelsEditor} owner=${o} max=${max} withDesc=${true} />
+          ${Calc.levelIssues(o.livelli, max).length ? html`<${Warnings} list=${Calc.levelIssues(o.livelli, max)} />` : null}` : null}
+      </div>`;
+    })}`;
 }
 
 /* ---------------- Griglia ed export ---------------- */

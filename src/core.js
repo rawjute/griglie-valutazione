@@ -166,7 +166,8 @@ const Model = {
       id: U.uid('ver'), nome: tipo === 'ALTRO' ? 'Personalizzata' : tipo, tipo, esclusi: [], testi: {}, adj: {}, aggiunti: [],
       chiuseSingole: null,   // numero di risposte singole in questa versione (null = come la verifica base)
       chiuseEscluse: [],     // risposte multiple della verifica base non incluse
-      chiuseAggiunte: []     // risposte multiple solo di questa versione
+      chiuseAggiunte: [],    // risposte multiple solo di questa versione
+      indicatori: {}         // griglia personalizzata: { idIndicatore: { nome, livelli } } (il massimo resta quello base)
     };
   },
 
@@ -198,6 +199,7 @@ const Model = {
         if (tolte) nv.chiuseSingole = Math.max(0, oldSingle.length - tolte);
       }
       nv.chiuseEscluse = (nv.chiuseEscluse || []).filter(id => !oldSingle.includes(id));
+      if (!nv.indicatori || Array.isArray(nv.indicatori)) nv.indicatori = {};
       return nv;
     });
     delete out.totale; // il totale ora si ricava dagli indicatori e dalle domande chiuse
@@ -293,6 +295,17 @@ const Calc = {
   indicator(t, id) { return t.indicatori.find(i => i.id === id); },
 
   /**
+   * L'indicatore come appare in una versione: se la versione ne personalizza la griglia,
+   * nome, livelli e descrittori sono quelli della versione; il massimo resta quello base.
+   */
+  indicatorView(t, vId, ind) {
+    const v = Calc.version(t, vId);
+    const o = v && v.indicatori ? v.indicatori[ind.id] : null;
+    if (!o) return ind;
+    return Object.assign({}, ind, { nome: o.nome || ind.nome, livelli: o.livelli && o.livelli.length ? o.livelli : ind.livelli, personalizzato: true });
+  },
+
+  /**
    * Indicatori raggruppati per sezione, nell'ordine delle sezioni; quelli senza sezione in fondo.
    * Restituisce [{ sezione: {id, nome} | null, inds: [...] }] senza gruppi vuoti.
    */
@@ -311,13 +324,13 @@ const Calc = {
   },
 
   /**
-   * Fasce di punteggio di ogni livello per un indicatore di massimo `max` (dal più alto), anche decimali.
-   * Un livello arriva fino a max% × massimo (incluso) e parte appena sopra il limite del livello inferiore;
-   * il livello più basso parte da 0 (incluso). Es. su 15 punti: Insufficiente "> 4,5 – 6,75".
+   * Fasce di punteggio di ogni livello per un indicatore di massimo `max` (dal più alto).
+   * Un livello arriva fino a max% × massimo (incluso, arrotondato a un decimale) e parte appena sopra
+   * il limite del livello inferiore; il più basso parte da 0. Es. su 15 punti: Insufficiente "> 4,5 – 6,8".
    */
   levelRanges(levels, max) {
     const sorted = Calc.sortedLevels(levels);
-    const tos = sorted.map((l, i) => i === 0 ? max : U.round((U.num(l.max) || 0) / 100 * max, 2));
+    const tos = sorted.map((l, i) => i === 0 ? max : U.round((U.num(l.max) || 0) / 100 * max, 1));
     return sorted.map((l, i) => {
       const last = i === sorted.length - 1;
       const from = last ? 0 : tos[i + 1];
@@ -508,7 +521,8 @@ const Calc = {
     const W = Calc.weights(t, vId);
     const usedIds = new Set();
     exs.forEach(e => Calc.validIndicators(t, e).forEach(id => usedIds.add(id)));
-    const used = t.indicatori.filter(i => usedIds.has(i.id));
+    // con la griglia personalizzata della versione (nomi, livelli e descrittori propri)
+    const used = t.indicatori.filter(i => usedIds.has(i.id)).map(i => Calc.indicatorView(t, vId, i));
     // le quote degli indicatori si calcolano sulla verifica standard: togliere un esercizio
     // in una versione toglie anche la sua parte di indicatori
     const cov = Calc.coverage(t, t.esercizi);

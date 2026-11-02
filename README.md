@@ -41,7 +41,7 @@ Il CSV può usare il punto e virgola, come quello salvato da Excel in italiano.
 ## Come vengono calcolati i punteggi
 
 - Ogni **indicatore** ha un punteggio massimo, cioè la scala su cui inserisci i voti (es. 0–20), e **livelli propri**: numero, nomi, percentuali e descrittori possono cambiare da un indicatore all'altro.
-- Per ogni livello indichi **fino a che percentuale** del massimo arriva. Il livello più alto arriva sempre al 100 %, l'ultimo parte da 0. Le fasce usano anche i decimali: un livello arriva fino a percentuale × massimo (incluso) e parte appena sopra il limite del livello inferiore. Su 15 punti con la scala predefinita: Eccellente "> 12 – 15", Buono "> 9 – 12", Sufficiente "> 6,75 – 9", Insufficiente "> 4,5 – 6,75", Gravemente insufficiente "0 – 4,5".
+- Per ogni livello indichi **fino a che percentuale** del massimo arriva. Il livello più alto arriva sempre al 100 %, l'ultimo parte da 0. Le fasce usano anche i decimali: un livello arriva fino a percentuale × massimo (incluso) e parte appena sopra il limite del livello inferiore. I limiti sono arrotondati a un decimale. Su 15 punti con la scala predefinita: Eccellente "> 12 – 15", Buono "> 9 – 12", Sufficiente "> 6,8 – 9", Insufficiente "> 4,5 – 6,8", Gravemente insufficiente "0 – 4,5".
 - Gli indicatori si possono raggruppare in **sezioni** (scheda Indicatori). Nella griglia ogni sezione ha un'intestazione e una riga di totale: per ogni domanda e complessivo; nella griglia dello studente sono i punti ottenuti sul massimo. Gli indicatori senza sezione restano in fondo.
 - La scheda *Livelli predefiniti* contiene la scala data ai nuovi indicatori (Eccellente 100 %, Buono 80 %, Sufficiente 60 %, Insufficiente 45 %, Gravemente insufficiente 30 %); puoi anche applicarla a tutti.
 - Il punteggio di ogni indicatore **si divide in parti uguali tra le domande da valutare che lo coprono**: un indicatore da 20 coperto da 4 domande vale 5 in ciascuna. Il "grezzo" di una domanda è la somma di queste parti.
@@ -58,6 +58,7 @@ Il CSV può usare il punto e virgola, come quello salvato da Excel in italiano.
   - *Scala*: 0 punti = voto minimo, punteggio pieno = 10. Con minimo 3, voto = 3 + punteggio / totale × 7.
 - Il **punteggio totale** non si imposta: è la somma dei massimi degli indicatori (più le eventuali correzioni) e dei punti delle domande chiuse.
 - **Versioni** (DSA, NAI, PEI…): ogni domanda da valutare e ogni domanda chiusa mantengono il punteggio che hanno nella standard. Il totale della versione è la somma di quello che contiene, e il voto si calcola su quel totale. Per le domande chiuse ogni versione può avere un numero diverso di risposte singole (anche maggiore), scegliere quali risposte multiple della verifica base includere e aggiungerne di proprie.
+- Ogni versione può avere una **griglia personalizzata**: per ogni indicatore nome, livelli e descrittori propri (es. descrittori semplificati per DSA o NAI). Il punteggio massimo resta quello della verifica base.
 - Dalla valutazione, **Modifica verifica** apre la verifica nell'editor; *Applica alla valutazione e torna* aggiorna la valutazione mantenendo i punteggi già inseriti.
 
 ## Pubblicazione su GitHub Pages

@@ -308,11 +308,11 @@ function StudentEval({ s, st, sorted }) {
     return k < 0 ? null : { ind, range: ranges[k], cls: levelClass(ranges.length, k) };
   };
   if (hover) {
-    const ind = t.indicatori.find(i => i.id === hover.indId);
+    const ind = M.used.find(i => i.id === hover.indId);
     const level = ind && ind.livelli.find(l => l.id === hover.levelId);
     if (level) hint = hintFor(ind, level);
   } else if (focus) {
-    const ind = t.indicatori.find(i => i.id === focus.indId);
+    const ind = M.used.find(i => i.id === focus.indId);
     const v = ind && st.punteggi[focus.exId] ? U.num(st.punteggi[focus.exId][ind.id]) : null;
     if (v !== null) hint = hintFor(ind, Calc.levelOf(ind.livelli, U.num(ind.max) || 0, v));
   }
