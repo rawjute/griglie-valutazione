@@ -289,3 +289,8 @@ main { padding: 20px; max-width: 1500px; margin: 0 auto; }
 .moodle-scroll { max-height: 46vh; overflow: auto; }
 .tbl tr.unmatched td { background: var(--warn-soft); }
 @media (max-width: 900px) { .moodle-cols { grid-template-columns: 1fr; } }
+
+/* ---------- sezioni di indicatori nella correzione ---------- */
+.tbl.eval tr.sec-row th { background: #c9d6ea; text-align: left; text-transform: uppercase; letter-spacing: .04em; font-size: 12px; }
+.tbl.eval tr.sec-total th, .tbl.eval tr.sec-total td { background: #eef2f8; font-weight: 600; }
+.tbl.eval tr.sec-total th { text-align: left; }

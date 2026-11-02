@@ -98,6 +98,7 @@ const Model = {
       notaPiede: 'La valutazione fa riferimento all’eventuale PDP/PEI redatto dal consiglio di classe.',
       notaPiedeQuando: 'bes',
       livelli: Model.defaultLevels(),
+      sezioni: [],     // gruppi di indicatori: [{ id, nome }] (ogni indicatore ha il campo sezione)
       indicatori: [],
       esercizi: [],
       // singole: quante domande a risposta singola (DS) e quanto vale ciascuna;
@@ -209,10 +210,13 @@ const Model = {
         ind.livelli = oldFormat(tplLevels) ? Model.migrateLevels(tplLevels, i.descrittori) : Model.copyLevels(out.livelli, false);
       }
       delete ind.descrittori;
+      if (ind.sezione === undefined) ind.sezione = '';
       ind.livelli = Calc.sortedLevels(ind.livelli);
       ind.livelli[0].max = 100;
       return ind;
     });
+    out.sezioni = (t.sezioni || []).map(x => Object.assign({ nome: '' }, x));
+    out.indicatori.forEach(i => { if (i.sezione && !out.sezioni.some(x => x.id === i.sezione)) i.sezione = ''; });
     out.esercizi = (t.esercizi || []).map(e => Object.assign({ testo: '', indicatori: [], bias: 0 }, e));
     return Model.renumber(out);
   },
@@ -287,6 +291,19 @@ const Model = {
  * ------------------------------------------------------------------- */
 const Calc = {
   indicator(t, id) { return t.indicatori.find(i => i.id === id); },
+
+  /**
+   * Indicatori raggruppati per sezione, nell'ordine delle sezioni; quelli senza sezione in fondo.
+   * Restituisce [{ sezione: {id, nome} | null, inds: [...] }] senza gruppi vuoti.
+   */
+  groupIndicators(t, list) {
+    const groups = (t.sezioni || []).map(sz => ({ sezione: sz, inds: list.filter(i => i.sezione === sz.id) }));
+    groups.push({ sezione: null, inds: list.filter(i => !i.sezione || !(t.sezioni || []).some(sz => sz.id === i.sezione)) });
+    return groups.filter(g => g.inds.length);
+  },
+
+  /** Indicatori nell'ordine in cui compaiono nella griglia (raggruppati per sezione). */
+  orderedIndicators(t, list) { return [].concat(...Calc.groupIndicators(t, list).map(g => g.inds)); },
 
   /** Livelli dal più alto al più basso; il primo vale sempre fino al 100 %. */
   sortedLevels(levels) {

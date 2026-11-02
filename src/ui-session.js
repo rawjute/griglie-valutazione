@@ -277,6 +277,22 @@ function StudentEval({ s, st, sorted }) {
   };
   const fileBase = Model.studentFileBase(s, st);
   const nInd = M.used.length;
+  const ordered = Calc.orderedIndicators(t, M.used); // ordine delle righe (per sezione): serve anche alla navigazione
+  /** Punti di una sezione: per domanda (ottenuti) e complessivi, ottenuti su massimo. */
+  const secTotals = g => {
+    const ids = g.inds.map(i => i.id);
+    const perEx = M.rows.map(r => {
+      const own = ids.filter(id => r.cells[id] !== undefined);
+      if (!own.length) return '–';
+      if (st.nonSvolti[r.ex.id]) return 'N.S.';
+      return U.fmt(U.sum(own, id => {
+        const mx = U.num(Calc.indicator(t, id).max) || 0;
+        const sc = U.clamp(U.num(st.punteggi[r.ex.id] ? st.punteggi[r.ex.id][id] : null) || 0, 0, mx);
+        return mx > 0 ? sc / mx * r.cells[id] : 0;
+      }));
+    });
+    return { perEx, got: U.sum(ids, id => res.indicatori[id].punti), max: U.sum(ids, id => res.indicatori[id].max) };
+  };
   const onKey = e => {
     if (e.key === 'Enter') { e.preventDefault(); focusNext(e, e.shiftKey ? -1 : 1); return; }
     moveWithArrows(e, nInd, M.rows.length);
@@ -323,7 +339,10 @@ function StudentEval({ s, st, sorted }) {
         <tr class="sub"><th></th>${M.rows.map(r => html`<th><label class="check tiny" title="Domanda non svolta: tutti gli indicatori a 0">
           <input type="checkbox" checked=${!!st.nonSvolti[r.ex.id]} onChange=${e => { if (e.target.checked) st.nonSvolti[r.ex.id] = true; else delete st.nonSvolti[r.ex.id]; changedSes(); }} />N.S.</label></th>`)}<th></th></tr>
       </thead>
-      <tbody>${M.used.map((ind, ri) => {
+      <tbody>${Calc.groupIndicators(t, M.used).map(g => html`
+        ${g.sezione ? html`<tr class="sec-row"><th colspan=${M.rows.length + 2}>${g.sezione.nome || 'Sezione'}</th></tr>` : null}
+        ${g.inds.map(ind => {
+        const ri = ordered.indexOf(ind);
         const max = U.num(ind.max) || 0;
         const ir = res.indicatori[ind.id];
         const ranges = Calc.levelRanges(ind.livelli, max);
@@ -353,7 +372,10 @@ function StudentEval({ s, st, sorted }) {
           })}
           <td class="c ind-res"><b>${U.fmt(ir.punti)}</b> / ${U.fmt(ir.max)}<div class="muted small">media ${U.fmt(ir.media)} / ${max}</div></td>
         </tr>`;
-      })}</tbody>
+      })}
+        ${g.sezione ? html`<tr class="sec-total"><th>Totale ${g.sezione.nome || 'sezione'}</th>
+          ${secTotals(g).perEx.map(v => html`<td class="c">${v}</td>`)}
+          <td class="c"><b>${U.fmt(secTotals(g).got)}</b> / ${U.fmt(secTotals(g).max)}</td></tr>` : null}`)}</tbody>
       <tfoot><tr><th>Punti domanda</th>${M.rows.map(r => {
         const x = res.esercizi[r.ex.id];
         return html`<td class=${'c ' + (x.completo ? '' : 'muted')}><b>${U.fmt(x.punti)}</b> / ${U.fmt(x.max)}</td>`;

@@ -297,6 +297,11 @@ main { padding: 20px; max-width: 1500px; margin: 0 auto; }
 .tbl tr.unmatched td { background: var(--warn-soft); }
 @media (max-width: 900px) { .moodle-cols { grid-template-columns: 1fr; } }
 
+/* ---------- sezioni di indicatori nella correzione ---------- */
+.tbl.eval tr.sec-row th { background: #c9d6ea; text-align: left; text-transform: uppercase; letter-spacing: .04em; font-size: 12px; }
+.tbl.eval tr.sec-total th, .tbl.eval tr.sec-total td { background: #eef2f8; font-weight: 600; }
+.tbl.eval tr.sec-total th { text-align: left; }
+
 </style>
   <script src="https://cdn.jsdelivr.net/npm/htm@3.1.1/preact/standalone.umd.js"></script>
 </head>
@@ -406,6 +411,7 @@ const Model = {
       notaPiede: 'La valutazione fa riferimento all’eventuale PDP/PEI redatto dal consiglio di classe.',
       notaPiedeQuando: 'bes',
       livelli: Model.defaultLevels(),
+      sezioni: [],     // gruppi di indicatori: [{ id, nome }] (ogni indicatore ha il campo sezione)
       indicatori: [],
       esercizi: [],
       // singole: quante domande a risposta singola (DS) e quanto vale ciascuna;
@@ -517,10 +523,13 @@ const Model = {
         ind.livelli = oldFormat(tplLevels) ? Model.migrateLevels(tplLevels, i.descrittori) : Model.copyLevels(out.livelli, false);
       }
       delete ind.descrittori;
+      if (ind.sezione === undefined) ind.sezione = '';
       ind.livelli = Calc.sortedLevels(ind.livelli);
       ind.livelli[0].max = 100;
       return ind;
     });
+    out.sezioni = (t.sezioni || []).map(x => Object.assign({ nome: '' }, x));
+    out.indicatori.forEach(i => { if (i.sezione && !out.sezioni.some(x => x.id === i.sezione)) i.sezione = ''; });
     out.esercizi = (t.esercizi || []).map(e => Object.assign({ testo: '', indicatori: [], bias: 0 }, e));
     return Model.renumber(out);
   },
@@ -595,6 +604,19 @@ const Model = {
  * ------------------------------------------------------------------- */
 const Calc = {
   indicator(t, id) { return t.indicatori.find(i => i.id === id); },
+
+  /**
+   * Indicatori raggruppati per sezione, nell'ordine delle sezioni; quelli senza sezione in fondo.
+   * Restituisce [{ sezione: {id, nome} | null, inds: [...] }] senza gruppi vuoti.
+   */
+  groupIndicators(t, list) {
+    const groups = (t.sezioni || []).map(sz => ({ sezione: sz, inds: list.filter(i => i.sezione === sz.id) }));
+    groups.push({ sezione: null, inds: list.filter(i => !i.sezione || !(t.sezioni || []).some(sz => sz.id === i.sezione)) });
+    return groups.filter(g => g.inds.length);
+  },
+
+  /** Indicatori nell'ordine in cui compaiono nella griglia (raggruppati per sezione). */
+  orderedIndicators(t, list) { return [].concat(...Calc.groupIndicators(t, list).map(g => g.inds)); },
 
   /** Livelli dal più alto al più basso; il primo vale sempre fino al 100 %. */
   sortedLevels(levels) {
@@ -1061,7 +1083,7 @@ const Grid = {
       nonSvolto: res ? res.esercizi[r.ex.id].nonSvolto : false,
       punti: res ? res.esercizi[r.ex.id].punti : null
     }));
-    const inds = indList.map(i => ({
+    const mkRow = i => ({
       ind: i,
       ranges: Calc.levelRanges(i.livelli, U.num(i.max) || 0),
       cells: M.rows.map(r => {
@@ -1072,7 +1094,31 @@ const Grid = {
         return { v: v === null ? '' : U.fmt(v) };
       }),
       last: res ? (res.indicatori[i.id] ? U.fmt(res.indicatori[i.id].media) : '') : U.fmt(M.eff[i.id])
-    }));
+    });
+    // gruppi per sezione: righe degli indicatori e riga del totale di sezione (per domanda e complessivo)
+    const groups = Calc.groupIndicators(t, indList).map(g => {
+      const ids = g.inds.map(i => i.id);
+      const perEx = M.rows.map(r => {
+        const own = ids.filter(id => r.cells[id] !== undefined);
+        if (!own.length) return '-';
+        if (!res) return U.fmt(U.sum(own, id => r.cells[id]));
+        if (res.esercizi[r.ex.id].nonSvolto) return 'N.S.';
+        return U.fmt(U.sum(own, id => {
+          const max = U.num(Calc.indicator(t, id).max) || 0;
+          const sc = U.clamp(U.num(stu.punteggi && stu.punteggi[r.ex.id] ? stu.punteggi[r.ex.id][id] : null) || 0, 0, max);
+          return max > 0 ? sc / max * r.cells[id] : 0;
+        }));
+      });
+      const max = U.sum(ids, id => M.eff[id] || 0);
+      const got = res ? U.sum(ids, id => (res.indicatori[id] || {}).punti || 0) : null;
+      return {
+        nome: g.sezione ? (g.sezione.nome || 'Sezione') : null,
+        rows: g.inds.map(mkRow),
+        perEx,
+        total: res ? U.fmt(got) + ' / ' + U.fmt(max) : U.fmt(max)
+      };
+    });
+    const inds = [].concat(...groups.map(g => g.rows));
     const showNote = t.notaPiede && (t.notaPiedeQuando === 'sempre' || (t.notaPiedeQuando === 'bes' && vId && vId !== 'std'));
     let closedLine = null;
     if (C.items.length) {
@@ -1104,7 +1150,7 @@ const Grid = {
       subtitle: t.intestazione || '',
       student: !!stu,
       lastHeader: stu ? 'Media' : 'Peso',
-      cols, inds, closedLine,
+      cols, inds, groups, closedLine,
       totManual: M.Tm,
       res,
       total: res ? U.fmt(res.totale) + ' / ' + U.fmt(res.max) : U.fmt(M.Tm + C.max),
@@ -1130,6 +1176,8 @@ const Grid = {
 .gv-grid .gv-ns{background:#fdecea;text-align:center;color:#a33}
 .gv-grid .gv-foot td{background:#f6f8fb;font-weight:600}
 .gv-grid .gv-total td{background:#dfe7f3;font-weight:700}
+.gv-grid .gv-sec td{background:#c9d6ea;font-weight:700;text-transform:uppercase;letter-spacing:.04em}
+.gv-grid .gv-sectot td{background:#eef2f8;font-weight:700}
 .gv-grid .gv-calc td{background:#eef2f8;text-align:right;font-weight:700;font-size:13px}
 .gv-grid .gv-calc .gv-voto-val{text-align:center;white-space:nowrap}
 .gv-grid .gv-voto-label{text-align:right;font-size:13px;font-weight:800;letter-spacing:.05em;background:#dfe7f3}
@@ -1149,19 +1197,25 @@ const Grid = {
     h += '<tr><th>Indicatore</th><th>Punti</th><th colspan="2">Descrittori</th><th>Punteggio</th>';
     d.cols.forEach(c => { h += '<th>' + e(c.nome) + '</th>'; });
     h += '<th>' + e(d.lastHeader) + '</th></tr></thead><tbody>';
-    d.inds.forEach(row => {
-      const rs = row.ranges.length;
-      row.ranges.forEach((r, k) => {
-        h += '<tr>';
-        if (k === 0) h += '<td class="gv-ind" rowspan="' + rs + '">' + e(row.ind.nome) + '</td><td class="c" rowspan="' + rs + '">' + e(U.fmt(U.num(row.ind.max))) + '</td>';
-        h += '<td class="c">' + e(r.level.nome) + '</td><td class="gv-desc">' + e(r.level.descrittore || '') + '</td>';
-        h += '<td class="c">' + Calc.rangeLabel(r) + '</td>';
-        if (k === 0) {
-          row.cells.forEach(c => { h += '<td rowspan="' + rs + '" class="' + (c.off ? 'gv-off' : c.ns ? 'gv-ns' : 'c') + '">' + e(c.v) + '</td>'; });
-          h += '<td class="c" rowspan="' + rs + '">' + e(row.last) + '</td>';
-        }
-        h += '</tr>';
+    d.groups.forEach(g => {
+      if (g.nome) h += '<tr class="gv-sec"><td colspan="' + width + '">' + e(g.nome) + '</td></tr>';
+      g.rows.forEach(row => {
+        const rs = row.ranges.length;
+        row.ranges.forEach((r, k) => {
+          h += '<tr>';
+          if (k === 0) h += '<td class="gv-ind" rowspan="' + rs + '">' + e(row.ind.nome) + '</td><td class="c" rowspan="' + rs + '">' + e(U.fmt(U.num(row.ind.max))) + '</td>';
+          h += '<td class="c">' + e(r.level.nome) + '</td><td class="gv-desc">' + e(r.level.descrittore || '') + '</td>';
+          h += '<td class="c">' + Calc.rangeLabel(r) + '</td>';
+          if (k === 0) {
+            row.cells.forEach(c => { h += '<td rowspan="' + rs + '" class="' + (c.off ? 'gv-off' : c.ns ? 'gv-ns' : 'c') + '">' + e(c.v) + '</td>'; });
+            h += '<td class="c" rowspan="' + rs + '">' + e(row.last) + '</td>';
+          }
+          h += '</tr>';
+        });
       });
+      if (g.nome) {
+        h += '<tr class="gv-sectot"><td colspan="5">Totale ' + e(g.nome) + '</td>' + g.perEx.map(v => '<td class="c">' + e(v) + '</td>').join('') + '<td class="c">' + e(g.total) + '</td></tr>';
+      }
     });
     const foot = (label, vals, last, cls) => {
       let s = '<tr class="' + (cls || 'gv-foot') + '"><td colspan="5">' + e(label) + '</td>';
@@ -1219,23 +1273,34 @@ const Grid = {
     ]];
     const grey = [230, 230, 230], pale = [246, 248, 251], blue = [223, 231, 243], pink = [253, 236, 234];
     const body = [];
-    d.inds.forEach(row => {
-      const rs = row.ranges.length;
-      row.ranges.forEach((r, k) => {
-        const line = [];
-        if (k === 0) {
-          line.push({ content: row.ind.nome, rowSpan: rs, styles: { fontStyle: 'bold', fillColor: pale, valign: 'middle' } });
-          line.push({ content: U.fmt(U.num(row.ind.max)), rowSpan: rs, styles: { halign: 'center', valign: 'middle' } });
-        }
-        line.push({ content: r.level.nome, styles: { halign: 'center', valign: 'middle' } });
-        line.push({ content: r.level.descrittore || '', styles: { fontSize: fs - 0.5 } });
-        line.push({ content: Calc.rangeLabel(r), styles: { halign: 'center', valign: 'middle' } });
-        if (k === 0) {
-          row.cells.forEach(c => line.push({ content: c.v, rowSpan: rs, styles: { halign: 'center', valign: 'middle', fillColor: c.off ? grey : c.ns ? pink : false } }));
-          line.push({ content: row.last, rowSpan: rs, styles: { halign: 'center', valign: 'middle' } });
-        }
-        body.push(line);
+    const secBlue = [201, 214, 234], secPale = [238, 242, 248];
+    d.groups.forEach(g => {
+      if (g.nome) body.push([{ content: g.nome.toUpperCase(), colSpan: 6 + n, styles: { fontStyle: 'bold', fillColor: secBlue } }]);
+      g.rows.forEach(row => {
+        const rs = row.ranges.length;
+        row.ranges.forEach((r, k) => {
+          const line = [];
+          if (k === 0) {
+            line.push({ content: row.ind.nome, rowSpan: rs, styles: { fontStyle: 'bold', fillColor: pale, valign: 'middle' } });
+            line.push({ content: U.fmt(U.num(row.ind.max)), rowSpan: rs, styles: { halign: 'center', valign: 'middle' } });
+          }
+          line.push({ content: r.level.nome, styles: { halign: 'center', valign: 'middle' } });
+          line.push({ content: r.level.descrittore || '', styles: { fontSize: fs - 0.5 } });
+          line.push({ content: Calc.rangeLabel(r), styles: { halign: 'center', valign: 'middle' } });
+          if (k === 0) {
+            row.cells.forEach(c => line.push({ content: c.v, rowSpan: rs, styles: { halign: 'center', valign: 'middle', fillColor: c.off ? grey : c.ns ? pink : false } }));
+            line.push({ content: row.last, rowSpan: rs, styles: { halign: 'center', valign: 'middle' } });
+          }
+          body.push(line);
+        });
       });
+      if (g.nome) {
+        body.push([
+          { content: 'Totale ' + g.nome, colSpan: 5, styles: { fontStyle: 'bold', fillColor: secPale } },
+          ...g.perEx.map(v => ({ content: v, styles: { halign: 'center', fontStyle: 'bold', fillColor: secPale } })),
+          { content: g.total, styles: { halign: 'center', fontStyle: 'bold', fillColor: secPale } }
+        ]);
+      }
     });
     const foot = (label, vals, last, fill) => [
       { content: label, colSpan: 5, styles: { fontStyle: 'bold', fillColor: fill || pale } },
@@ -1343,22 +1408,39 @@ const Grid = {
     set(r, lastCol, d.lastHeader, { bold: true, fill: BLUE, align: center });
     r++;
 
-    d.inds.forEach(row => {
-      const rs = row.ranges.length;
-      const r0 = r;
-      row.ranges.forEach((lv, k) => {
-        set(r + k, 1, k === 0 ? row.ind.nome : null, { bold: true, fill: PALE });
-        set(r + k, 2, k === 0 ? U.num(row.ind.max) : null, { align: center });
-        set(r + k, 3, lv.level.nome, { align: center });
-        set(r + k, 4, lv.level.descrittore || '', { size: 9 });
-        set(r + k, 5, Calc.rangeLabel(lv), { align: center });
-        row.cells.forEach((c, i) => set(r + k, 6 + i, k === 0 ? numOrText(c.v) : null, { align: center, fill: c.off ? GREY : c.ns ? PINK : null }));
-        set(r + k, lastCol, k === 0 ? numOrText(row.last) : null, { align: center });
-      });
-      if (rs > 1) {
-        [1, 2].concat(d.cols.map((_, i) => 6 + i), [lastCol]).forEach(c => ws.mergeCells(r0, c, r0 + rs - 1, c));
+    const SEC = 'FFC9D6EA', SECPALE = 'FFEEF2F8';
+    d.groups.forEach(g => {
+      if (g.nome) {
+        ws.mergeCells(r, 1, r, lastCol);
+        set(r, 1, g.nome.toUpperCase(), { bold: true, fill: SEC });
+        for (let c = 2; c <= lastCol; c++) set(r, c, null, { fill: SEC });
+        r++;
       }
-      r += rs;
+      g.rows.forEach(row => {
+        const rs = row.ranges.length;
+        const r0 = r;
+        row.ranges.forEach((lv, k) => {
+          set(r + k, 1, k === 0 ? row.ind.nome : null, { bold: true, fill: PALE });
+          set(r + k, 2, k === 0 ? U.num(row.ind.max) : null, { align: center });
+          set(r + k, 3, lv.level.nome, { align: center });
+          set(r + k, 4, lv.level.descrittore || '', { size: 9 });
+          set(r + k, 5, Calc.rangeLabel(lv), { align: center });
+          row.cells.forEach((c, i) => set(r + k, 6 + i, k === 0 ? numOrText(c.v) : null, { align: center, fill: c.off ? GREY : c.ns ? PINK : null }));
+          set(r + k, lastCol, k === 0 ? numOrText(row.last) : null, { align: center });
+        });
+        if (rs > 1) {
+          [1, 2].concat(d.cols.map((_, i) => 6 + i), [lastCol]).forEach(c => ws.mergeCells(r0, c, r0 + rs - 1, c));
+        }
+        r += rs;
+      });
+      if (g.nome) {
+        ws.mergeCells(r, 1, r, 5);
+        set(r, 1, 'Totale ' + g.nome, { bold: true, fill: SECPALE });
+        for (let c = 2; c <= 5; c++) set(r, c, null, { fill: SECPALE });
+        g.perEx.forEach((v, i) => set(r, 6 + i, numOrText(v), { bold: true, fill: SECPALE, align: center }));
+        set(r, lastCol, g.total, { bold: true, fill: SECPALE, align: center });
+        r++;
+      }
     });
 
     const footRow = (label, vals, last, f) => {
@@ -1938,15 +2020,49 @@ function applyDefaultLevels(t, ind) {
 }
 
 /* ---------------- Indicatori ---------------- */
+/** Sezioni che raggruppano gli indicatori nella griglia, ognuna con il proprio totale. */
+function SectionsEditor({ t }) {
+  const maxOf = sz => U.sum(t.indicatori.filter(i => i.sezione === sz.id), i => U.num(i.max) || 0);
+  return html`<div class="card">
+    <div class="row gap wrap"><h3 class="grow" style="margin:0">Sezioni</h3>
+      <button class="btn small" onClick=${() => { t.sezioni.push({ id: U.uid('sez'), nome: 'Sezione ' + (t.sezioni.length + 1) }); changedTpl(); }}>+ Aggiungi sezione</button></div>
+    <p class="muted small">Facoltative: raggruppano gli indicatori nella griglia, con una riga di totale per ogni sezione.
+      Scegli la sezione di ogni indicatore qui sotto; quelli senza sezione restano in fondo.</p>
+    ${t.sezioni.length ? html`<table class="tbl compact" style="max-width:560px">
+      <thead><tr><th>Nome</th><th>Indicatori</th><th>Punti</th><th></th></tr></thead>
+      <tbody>${t.sezioni.map((sz, i) => html`<tr key=${sz.id}>
+        <td><${TextInput} value=${sz.nome} onInput=${v => { sz.nome = v; changedTpl(); }} /></td>
+        <td class="c">${t.indicatori.filter(x => x.sezione === sz.id).length}</td>
+        <td class="c">${U.fmt(maxOf(sz))}</td>
+        <td class="nowrap">
+          <${IconBtn} icon="↑" title="Sposta su" disabled=${i === 0} onClick=${() => { moveItem(t.sezioni, i, -1); changedTpl(); }} />
+          <${IconBtn} icon="↓" title="Sposta giù" disabled=${i === t.sezioni.length - 1} onClick=${() => { moveItem(t.sezioni, i, 1); changedTpl(); }} />
+          <${IconBtn} icon="✕" title="Elimina sezione (gli indicatori restano)" onClick=${() => {
+            t.indicatori.forEach(x => { if (x.sezione === sz.id) x.sezione = ''; });
+            t.sezioni = t.sezioni.filter(x => x !== sz); changedTpl();
+          }} />
+        </td>
+      </tr>`)}</tbody>
+    </table>` : null}
+  </div>`;
+}
+
 function BIndicatori({ t }) {
   const totMax = U.sum(t.indicatori, i => U.num(i.max) || 0);
   return html`
     <p class="muted">Il punteggio massimo è la scala su cui inserirai i voti in correzione (es. 0–20) e definisce il peso dell'indicatore nella verifica.
       Ogni indicatore ha i suoi livelli: puoi aggiungerne, toglierne e cambiarne le percentuali.</p>
+    <${SectionsEditor} t=${t} />
     ${t.indicatori.map((ind, idx) => html`<div class="card" key=${ind.id}>
       <div class="row gap">
         <${Field} label=${'Indicatore ' + (idx + 1)} class="grow"><${TextInput} value=${ind.nome} onInput=${v => { ind.nome = v; changedTpl(); }} /><//>
         <${Field} label="Punteggio massimo"><${NumInput} value=${ind.max} min=${1} width="90px" onChange=${v => { ind.max = v === null ? 0 : Math.round(v); changedTpl(); }} /><//>
+        ${t.sezioni.length ? html`<${Field} label="Sezione">
+          <select value=${ind.sezione || ''} onChange=${e => { ind.sezione = e.target.value; changedTpl(); }}>
+            <option value="">Nessuna</option>
+            ${t.sezioni.map(sz => html`<option value=${sz.id}>${sz.nome || '(senza nome)'}</option>`)}
+          </select>
+        <//>` : null}
         <div class="field"><span class="field-label">Peso</span><span class="pill">${totMax ? U.fmt((U.num(ind.max) || 0) / totMax * 100, 1) + ' %' : '—'}</span></div>
         <div class="row end">
           <${IconBtn} icon="↑" title="Sposta su" disabled=${idx === 0} onClick=${() => { moveItem(t.indicatori, idx, -1); changedTpl(); }} />
@@ -2633,6 +2749,22 @@ function StudentEval({ s, st, sorted }) {
   };
   const fileBase = Model.studentFileBase(s, st);
   const nInd = M.used.length;
+  const ordered = Calc.orderedIndicators(t, M.used); // ordine delle righe (per sezione): serve anche alla navigazione
+  /** Punti di una sezione: per domanda (ottenuti) e complessivi, ottenuti su massimo. */
+  const secTotals = g => {
+    const ids = g.inds.map(i => i.id);
+    const perEx = M.rows.map(r => {
+      const own = ids.filter(id => r.cells[id] !== undefined);
+      if (!own.length) return '–';
+      if (st.nonSvolti[r.ex.id]) return 'N.S.';
+      return U.fmt(U.sum(own, id => {
+        const mx = U.num(Calc.indicator(t, id).max) || 0;
+        const sc = U.clamp(U.num(st.punteggi[r.ex.id] ? st.punteggi[r.ex.id][id] : null) || 0, 0, mx);
+        return mx > 0 ? sc / mx * r.cells[id] : 0;
+      }));
+    });
+    return { perEx, got: U.sum(ids, id => res.indicatori[id].punti), max: U.sum(ids, id => res.indicatori[id].max) };
+  };
   const onKey = e => {
     if (e.key === 'Enter') { e.preventDefault(); focusNext(e, e.shiftKey ? -1 : 1); return; }
     moveWithArrows(e, nInd, M.rows.length);
@@ -2679,7 +2811,10 @@ function StudentEval({ s, st, sorted }) {
         <tr class="sub"><th></th>${M.rows.map(r => html`<th><label class="check tiny" title="Domanda non svolta: tutti gli indicatori a 0">
           <input type="checkbox" checked=${!!st.nonSvolti[r.ex.id]} onChange=${e => { if (e.target.checked) st.nonSvolti[r.ex.id] = true; else delete st.nonSvolti[r.ex.id]; changedSes(); }} />N.S.</label></th>`)}<th></th></tr>
       </thead>
-      <tbody>${M.used.map((ind, ri) => {
+      <tbody>${Calc.groupIndicators(t, M.used).map(g => html`
+        ${g.sezione ? html`<tr class="sec-row"><th colspan=${M.rows.length + 2}>${g.sezione.nome || 'Sezione'}</th></tr>` : null}
+        ${g.inds.map(ind => {
+        const ri = ordered.indexOf(ind);
         const max = U.num(ind.max) || 0;
         const ir = res.indicatori[ind.id];
         const ranges = Calc.levelRanges(ind.livelli, max);
@@ -2709,7 +2844,10 @@ function StudentEval({ s, st, sorted }) {
           })}
           <td class="c ind-res"><b>${U.fmt(ir.punti)}</b> / ${U.fmt(ir.max)}<div class="muted small">media ${U.fmt(ir.media)} / ${max}</div></td>
         </tr>`;
-      })}</tbody>
+      })}
+        ${g.sezione ? html`<tr class="sec-total"><th>Totale ${g.sezione.nome || 'sezione'}</th>
+          ${secTotals(g).perEx.map(v => html`<td class="c">${v}</td>`)}
+          <td class="c"><b>${U.fmt(secTotals(g).got)}</b> / ${U.fmt(secTotals(g).max)}</td></tr>` : null}`)}</tbody>
       <tfoot><tr><th>Punti domanda</th>${M.rows.map(r => {
         const x = res.esercizi[r.ex.id];
         return html`<td class=${'c ' + (x.completo ? '' : 'muted')}><b>${U.fmt(x.punti)}</b> / ${U.fmt(x.max)}</td>`;

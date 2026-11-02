@@ -17,7 +17,7 @@ const Grid = {
       nonSvolto: res ? res.esercizi[r.ex.id].nonSvolto : false,
       punti: res ? res.esercizi[r.ex.id].punti : null
     }));
-    const inds = indList.map(i => ({
+    const mkRow = i => ({
       ind: i,
       ranges: Calc.levelRanges(i.livelli, U.num(i.max) || 0),
       cells: M.rows.map(r => {
@@ -28,7 +28,31 @@ const Grid = {
         return { v: v === null ? '' : U.fmt(v) };
       }),
       last: res ? (res.indicatori[i.id] ? U.fmt(res.indicatori[i.id].media) : '') : U.fmt(M.eff[i.id])
-    }));
+    });
+    // gruppi per sezione: righe degli indicatori e riga del totale di sezione (per domanda e complessivo)
+    const groups = Calc.groupIndicators(t, indList).map(g => {
+      const ids = g.inds.map(i => i.id);
+      const perEx = M.rows.map(r => {
+        const own = ids.filter(id => r.cells[id] !== undefined);
+        if (!own.length) return '-';
+        if (!res) return U.fmt(U.sum(own, id => r.cells[id]));
+        if (res.esercizi[r.ex.id].nonSvolto) return 'N.S.';
+        return U.fmt(U.sum(own, id => {
+          const max = U.num(Calc.indicator(t, id).max) || 0;
+          const sc = U.clamp(U.num(stu.punteggi && stu.punteggi[r.ex.id] ? stu.punteggi[r.ex.id][id] : null) || 0, 0, max);
+          return max > 0 ? sc / max * r.cells[id] : 0;
+        }));
+      });
+      const max = U.sum(ids, id => M.eff[id] || 0);
+      const got = res ? U.sum(ids, id => (res.indicatori[id] || {}).punti || 0) : null;
+      return {
+        nome: g.sezione ? (g.sezione.nome || 'Sezione') : null,
+        rows: g.inds.map(mkRow),
+        perEx,
+        total: res ? U.fmt(got) + ' / ' + U.fmt(max) : U.fmt(max)
+      };
+    });
+    const inds = [].concat(...groups.map(g => g.rows));
     const showNote = t.notaPiede && (t.notaPiedeQuando === 'sempre' || (t.notaPiedeQuando === 'bes' && vId && vId !== 'std'));
     let closedLine = null;
     if (C.items.length) {
@@ -60,7 +84,7 @@ const Grid = {
       subtitle: t.intestazione || '',
       student: !!stu,
       lastHeader: stu ? 'Media' : 'Peso',
-      cols, inds, closedLine,
+      cols, inds, groups, closedLine,
       totManual: M.Tm,
       res,
       total: res ? U.fmt(res.totale) + ' / ' + U.fmt(res.max) : U.fmt(M.Tm + C.max),
@@ -86,6 +110,8 @@ const Grid = {
 .gv-grid .gv-ns{background:#fdecea;text-align:center;color:#a33}
 .gv-grid .gv-foot td{background:#f6f8fb;font-weight:600}
 .gv-grid .gv-total td{background:#dfe7f3;font-weight:700}
+.gv-grid .gv-sec td{background:#c9d6ea;font-weight:700;text-transform:uppercase;letter-spacing:.04em}
+.gv-grid .gv-sectot td{background:#eef2f8;font-weight:700}
 .gv-grid .gv-calc td{background:#eef2f8;text-align:right;font-weight:700;font-size:13px}
 .gv-grid .gv-calc .gv-voto-val{text-align:center;white-space:nowrap}
 .gv-grid .gv-voto-label{text-align:right;font-size:13px;font-weight:800;letter-spacing:.05em;background:#dfe7f3}
@@ -105,19 +131,25 @@ const Grid = {
     h += '<tr><th>Indicatore</th><th>Punti</th><th colspan="2">Descrittori</th><th>Punteggio</th>';
     d.cols.forEach(c => { h += '<th>' + e(c.nome) + '</th>'; });
     h += '<th>' + e(d.lastHeader) + '</th></tr></thead><tbody>';
-    d.inds.forEach(row => {
-      const rs = row.ranges.length;
-      row.ranges.forEach((r, k) => {
-        h += '<tr>';
-        if (k === 0) h += '<td class="gv-ind" rowspan="' + rs + '">' + e(row.ind.nome) + '</td><td class="c" rowspan="' + rs + '">' + e(U.fmt(U.num(row.ind.max))) + '</td>';
-        h += '<td class="c">' + e(r.level.nome) + '</td><td class="gv-desc">' + e(r.level.descrittore || '') + '</td>';
-        h += '<td class="c">' + Calc.rangeLabel(r) + '</td>';
-        if (k === 0) {
-          row.cells.forEach(c => { h += '<td rowspan="' + rs + '" class="' + (c.off ? 'gv-off' : c.ns ? 'gv-ns' : 'c') + '">' + e(c.v) + '</td>'; });
-          h += '<td class="c" rowspan="' + rs + '">' + e(row.last) + '</td>';
-        }
-        h += '</tr>';
+    d.groups.forEach(g => {
+      if (g.nome) h += '<tr class="gv-sec"><td colspan="' + width + '">' + e(g.nome) + '</td></tr>';
+      g.rows.forEach(row => {
+        const rs = row.ranges.length;
+        row.ranges.forEach((r, k) => {
+          h += '<tr>';
+          if (k === 0) h += '<td class="gv-ind" rowspan="' + rs + '">' + e(row.ind.nome) + '</td><td class="c" rowspan="' + rs + '">' + e(U.fmt(U.num(row.ind.max))) + '</td>';
+          h += '<td class="c">' + e(r.level.nome) + '</td><td class="gv-desc">' + e(r.level.descrittore || '') + '</td>';
+          h += '<td class="c">' + Calc.rangeLabel(r) + '</td>';
+          if (k === 0) {
+            row.cells.forEach(c => { h += '<td rowspan="' + rs + '" class="' + (c.off ? 'gv-off' : c.ns ? 'gv-ns' : 'c') + '">' + e(c.v) + '</td>'; });
+            h += '<td class="c" rowspan="' + rs + '">' + e(row.last) + '</td>';
+          }
+          h += '</tr>';
+        });
       });
+      if (g.nome) {
+        h += '<tr class="gv-sectot"><td colspan="5">Totale ' + e(g.nome) + '</td>' + g.perEx.map(v => '<td class="c">' + e(v) + '</td>').join('') + '<td class="c">' + e(g.total) + '</td></tr>';
+      }
     });
     const foot = (label, vals, last, cls) => {
       let s = '<tr class="' + (cls || 'gv-foot') + '"><td colspan="5">' + e(label) + '</td>';
@@ -175,23 +207,34 @@ const Grid = {
     ]];
     const grey = [230, 230, 230], pale = [246, 248, 251], blue = [223, 231, 243], pink = [253, 236, 234];
     const body = [];
-    d.inds.forEach(row => {
-      const rs = row.ranges.length;
-      row.ranges.forEach((r, k) => {
-        const line = [];
-        if (k === 0) {
-          line.push({ content: row.ind.nome, rowSpan: rs, styles: { fontStyle: 'bold', fillColor: pale, valign: 'middle' } });
-          line.push({ content: U.fmt(U.num(row.ind.max)), rowSpan: rs, styles: { halign: 'center', valign: 'middle' } });
-        }
-        line.push({ content: r.level.nome, styles: { halign: 'center', valign: 'middle' } });
-        line.push({ content: r.level.descrittore || '', styles: { fontSize: fs - 0.5 } });
-        line.push({ content: Calc.rangeLabel(r), styles: { halign: 'center', valign: 'middle' } });
-        if (k === 0) {
-          row.cells.forEach(c => line.push({ content: c.v, rowSpan: rs, styles: { halign: 'center', valign: 'middle', fillColor: c.off ? grey : c.ns ? pink : false } }));
-          line.push({ content: row.last, rowSpan: rs, styles: { halign: 'center', valign: 'middle' } });
-        }
-        body.push(line);
+    const secBlue = [201, 214, 234], secPale = [238, 242, 248];
+    d.groups.forEach(g => {
+      if (g.nome) body.push([{ content: g.nome.toUpperCase(), colSpan: 6 + n, styles: { fontStyle: 'bold', fillColor: secBlue } }]);
+      g.rows.forEach(row => {
+        const rs = row.ranges.length;
+        row.ranges.forEach((r, k) => {
+          const line = [];
+          if (k === 0) {
+            line.push({ content: row.ind.nome, rowSpan: rs, styles: { fontStyle: 'bold', fillColor: pale, valign: 'middle' } });
+            line.push({ content: U.fmt(U.num(row.ind.max)), rowSpan: rs, styles: { halign: 'center', valign: 'middle' } });
+          }
+          line.push({ content: r.level.nome, styles: { halign: 'center', valign: 'middle' } });
+          line.push({ content: r.level.descrittore || '', styles: { fontSize: fs - 0.5 } });
+          line.push({ content: Calc.rangeLabel(r), styles: { halign: 'center', valign: 'middle' } });
+          if (k === 0) {
+            row.cells.forEach(c => line.push({ content: c.v, rowSpan: rs, styles: { halign: 'center', valign: 'middle', fillColor: c.off ? grey : c.ns ? pink : false } }));
+            line.push({ content: row.last, rowSpan: rs, styles: { halign: 'center', valign: 'middle' } });
+          }
+          body.push(line);
+        });
       });
+      if (g.nome) {
+        body.push([
+          { content: 'Totale ' + g.nome, colSpan: 5, styles: { fontStyle: 'bold', fillColor: secPale } },
+          ...g.perEx.map(v => ({ content: v, styles: { halign: 'center', fontStyle: 'bold', fillColor: secPale } })),
+          { content: g.total, styles: { halign: 'center', fontStyle: 'bold', fillColor: secPale } }
+        ]);
+      }
     });
     const foot = (label, vals, last, fill) => [
       { content: label, colSpan: 5, styles: { fontStyle: 'bold', fillColor: fill || pale } },
@@ -299,22 +342,39 @@ const Grid = {
     set(r, lastCol, d.lastHeader, { bold: true, fill: BLUE, align: center });
     r++;
 
-    d.inds.forEach(row => {
-      const rs = row.ranges.length;
-      const r0 = r;
-      row.ranges.forEach((lv, k) => {
-        set(r + k, 1, k === 0 ? row.ind.nome : null, { bold: true, fill: PALE });
-        set(r + k, 2, k === 0 ? U.num(row.ind.max) : null, { align: center });
-        set(r + k, 3, lv.level.nome, { align: center });
-        set(r + k, 4, lv.level.descrittore || '', { size: 9 });
-        set(r + k, 5, Calc.rangeLabel(lv), { align: center });
-        row.cells.forEach((c, i) => set(r + k, 6 + i, k === 0 ? numOrText(c.v) : null, { align: center, fill: c.off ? GREY : c.ns ? PINK : null }));
-        set(r + k, lastCol, k === 0 ? numOrText(row.last) : null, { align: center });
-      });
-      if (rs > 1) {
-        [1, 2].concat(d.cols.map((_, i) => 6 + i), [lastCol]).forEach(c => ws.mergeCells(r0, c, r0 + rs - 1, c));
+    const SEC = 'FFC9D6EA', SECPALE = 'FFEEF2F8';
+    d.groups.forEach(g => {
+      if (g.nome) {
+        ws.mergeCells(r, 1, r, lastCol);
+        set(r, 1, g.nome.toUpperCase(), { bold: true, fill: SEC });
+        for (let c = 2; c <= lastCol; c++) set(r, c, null, { fill: SEC });
+        r++;
       }
-      r += rs;
+      g.rows.forEach(row => {
+        const rs = row.ranges.length;
+        const r0 = r;
+        row.ranges.forEach((lv, k) => {
+          set(r + k, 1, k === 0 ? row.ind.nome : null, { bold: true, fill: PALE });
+          set(r + k, 2, k === 0 ? U.num(row.ind.max) : null, { align: center });
+          set(r + k, 3, lv.level.nome, { align: center });
+          set(r + k, 4, lv.level.descrittore || '', { size: 9 });
+          set(r + k, 5, Calc.rangeLabel(lv), { align: center });
+          row.cells.forEach((c, i) => set(r + k, 6 + i, k === 0 ? numOrText(c.v) : null, { align: center, fill: c.off ? GREY : c.ns ? PINK : null }));
+          set(r + k, lastCol, k === 0 ? numOrText(row.last) : null, { align: center });
+        });
+        if (rs > 1) {
+          [1, 2].concat(d.cols.map((_, i) => 6 + i), [lastCol]).forEach(c => ws.mergeCells(r0, c, r0 + rs - 1, c));
+        }
+        r += rs;
+      });
+      if (g.nome) {
+        ws.mergeCells(r, 1, r, 5);
+        set(r, 1, 'Totale ' + g.nome, { bold: true, fill: SECPALE });
+        for (let c = 2; c <= 5; c++) set(r, c, null, { fill: SECPALE });
+        g.perEx.forEach((v, i) => set(r, 6 + i, numOrText(v), { bold: true, fill: SECPALE, align: center }));
+        set(r, lastCol, g.total, { bold: true, fill: SECPALE, align: center });
+        r++;
+      }
     });
 
     const footRow = (label, vals, last, f) => {

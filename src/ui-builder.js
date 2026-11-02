@@ -172,15 +172,49 @@ function applyDefaultLevels(t, ind) {
 }
 
 /* ---------------- Indicatori ---------------- */
+/** Sezioni che raggruppano gli indicatori nella griglia, ognuna con il proprio totale. */
+function SectionsEditor({ t }) {
+  const maxOf = sz => U.sum(t.indicatori.filter(i => i.sezione === sz.id), i => U.num(i.max) || 0);
+  return html`<div class="card">
+    <div class="row gap wrap"><h3 class="grow" style="margin:0">Sezioni</h3>
+      <button class="btn small" onClick=${() => { t.sezioni.push({ id: U.uid('sez'), nome: 'Sezione ' + (t.sezioni.length + 1) }); changedTpl(); }}>+ Aggiungi sezione</button></div>
+    <p class="muted small">Facoltative: raggruppano gli indicatori nella griglia, con una riga di totale per ogni sezione.
+      Scegli la sezione di ogni indicatore qui sotto; quelli senza sezione restano in fondo.</p>
+    ${t.sezioni.length ? html`<table class="tbl compact" style="max-width:560px">
+      <thead><tr><th>Nome</th><th>Indicatori</th><th>Punti</th><th></th></tr></thead>
+      <tbody>${t.sezioni.map((sz, i) => html`<tr key=${sz.id}>
+        <td><${TextInput} value=${sz.nome} onInput=${v => { sz.nome = v; changedTpl(); }} /></td>
+        <td class="c">${t.indicatori.filter(x => x.sezione === sz.id).length}</td>
+        <td class="c">${U.fmt(maxOf(sz))}</td>
+        <td class="nowrap">
+          <${IconBtn} icon="↑" title="Sposta su" disabled=${i === 0} onClick=${() => { moveItem(t.sezioni, i, -1); changedTpl(); }} />
+          <${IconBtn} icon="↓" title="Sposta giù" disabled=${i === t.sezioni.length - 1} onClick=${() => { moveItem(t.sezioni, i, 1); changedTpl(); }} />
+          <${IconBtn} icon="✕" title="Elimina sezione (gli indicatori restano)" onClick=${() => {
+            t.indicatori.forEach(x => { if (x.sezione === sz.id) x.sezione = ''; });
+            t.sezioni = t.sezioni.filter(x => x !== sz); changedTpl();
+          }} />
+        </td>
+      </tr>`)}</tbody>
+    </table>` : null}
+  </div>`;
+}
+
 function BIndicatori({ t }) {
   const totMax = U.sum(t.indicatori, i => U.num(i.max) || 0);
   return html`
     <p class="muted">Il punteggio massimo è la scala su cui inserirai i voti in correzione (es. 0–20) e definisce il peso dell'indicatore nella verifica.
       Ogni indicatore ha i suoi livelli: puoi aggiungerne, toglierne e cambiarne le percentuali.</p>
+    <${SectionsEditor} t=${t} />
     ${t.indicatori.map((ind, idx) => html`<div class="card" key=${ind.id}>
       <div class="row gap">
         <${Field} label=${'Indicatore ' + (idx + 1)} class="grow"><${TextInput} value=${ind.nome} onInput=${v => { ind.nome = v; changedTpl(); }} /><//>
         <${Field} label="Punteggio massimo"><${NumInput} value=${ind.max} min=${1} width="90px" onChange=${v => { ind.max = v === null ? 0 : Math.round(v); changedTpl(); }} /><//>
+        ${t.sezioni.length ? html`<${Field} label="Sezione">
+          <select value=${ind.sezione || ''} onChange=${e => { ind.sezione = e.target.value; changedTpl(); }}>
+            <option value="">Nessuna</option>
+            ${t.sezioni.map(sz => html`<option value=${sz.id}>${sz.nome || '(senza nome)'}</option>`)}
+          </select>
+        <//>` : null}
         <div class="field"><span class="field-label">Peso</span><span class="pill">${totMax ? U.fmt((U.num(ind.max) || 0) / totMax * 100, 1) + ' %' : '—'}</span></div>
         <div class="row end">
           <${IconBtn} icon="↑" title="Sposta su" disabled=${idx === 0} onClick=${() => { moveItem(t.indicatori, idx, -1); changedTpl(); }} />
